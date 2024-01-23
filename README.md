@@ -4,8 +4,7 @@
 The Mailman 3 system has many parts that have not been translated into Japanese on the web interface. Additionally, there is a critical issue where sending Japanese emails to the mailing list results in garbled text or even loss of emails. This is a corrective program to address these issues.
 
 ## Target Software
-Mailman Core v3.3.9
-
+- Mailman Core v3.3.9
 - Postorius v1.3.10
 - Hyperkitty v1.3.8
 - Mailmanclient v3.3.5
