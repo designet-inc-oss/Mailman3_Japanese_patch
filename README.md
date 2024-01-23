@@ -5,11 +5,12 @@ The Mailman 3 system has many parts that have not been translated into Japanese 
 
 ## Target Software
 Mailman Core v3.3.9
-Postorius v1.3.10
-Hyperkitty v1.3.8
-Mailmanclient v3.3.5
-Hyperkitty Mailman plugin v1.2.1
-Django-mailman3 v1.3.11
+
+- Postorius v1.3.10
+- Hyperkitty v1.3.8
+- Mailmanclient v3.3.5
+- Hyperkitty Mailman plugin v1.2.1
+- Django-mailman3 v1.3.11
 
 Verification has been conducted on AlmaLinux 9.3.
 
