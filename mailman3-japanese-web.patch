@@ -1,0 +1,3333 @@
+diff -ruN ./site-packages.ORG/allauth/locale/ja/LC_MESSAGES/django.po ./site-packages/allauth/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/allauth/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:10.674715715 +0900
++++ ./site-packages/allauth/locale/ja/LC_MESSAGES/django.po	2024-01-18 10:05:06.480755799 +0900
+@@ -121,7 +121,7 @@
+ msgstr "メールアドレス（確認用）"
+ 
+ #: account/forms.py:320
+-#, fuzzy
++#: fuzzy
+ #| msgid "email confirmation"
+ msgid "Email address confirmation"
+ msgstr "メールアドレスの確認"
+@@ -131,7 +131,7 @@
+ msgstr "メールアドレス（オプション）"
+ 
+ #: account/forms.py:383
+-#, fuzzy
++#: fuzzy
+ #| msgid "You must type the same password each time."
+ msgid "You must type the same email each time."
+ msgstr "同じパスワードを入力してください。"
+@@ -145,7 +145,7 @@
+ msgstr "このメールアドレスはすでに登録されています。"
+ 
+ #: account/forms.py:491
+-#, fuzzy, python-format
++#: fuzzy, python-format
+ #| msgid "Your account has no verified email address."
+ msgid "You cannot add more than %d email addresses."
+ msgstr "確認済みのメールアドレスの登録が必要です。"
+@@ -283,10 +283,10 @@
+ msgstr "プロバイダー"
+ 
+ #: socialaccount/models.py:46
+-#, fuzzy
++#: fuzzy
+ #| msgid "provider"
+ msgid "provider ID"
+-msgstr "プロバイダー"
++msgstr "プロバイダーID"
+ 
+ #: socialaccount/models.py:50
+ msgid "name"
+@@ -570,7 +570,7 @@
+ msgstr "パスワード再設定メール"
+ 
+ #: templates/account/email/unknown_account_message.txt:4
+-#, fuzzy, python-format
++#: fuzzy, python-format
+ #| msgid ""
+ #| "You're receiving this e-mail because you or someone else has requested a "
+ #| "password for your user account.\n"
+@@ -792,7 +792,7 @@
+ msgstr "パスワードの再設定に問題がある場合はご連絡ください。"
+ 
+ #: templates/account/password_reset_done.html:16
+-#, fuzzy
++#: fuzzy
+ #| msgid ""
+ #| "We have sent an e-mail to you for\n"
+ #| "verification. Please click on the link inside this e-mail. Please\n"
+@@ -897,7 +897,7 @@
+ msgstr "メールアドレスを確認してください"
+ 
+ #: templates/account/verification_sent.html:12
+-#, fuzzy
++#: fuzzy
+ #| msgid ""
+ #| "We have sent an e-mail to you for verification. Follow the link provided "
+ #| "to finalize the signup process. Please contact us if you do not receive "
+@@ -928,7 +928,7 @@
+ "ただきます。"
+ 
+ #: templates/account/verified_email_required.html:18
+-#, fuzzy
++#: fuzzy
+ #| msgid ""
+ #| "We have sent an e-mail to you for\n"
+ #| "verification. Please click on the link inside this e-mail. Please\n"
+diff -ruN ./site-packages.ORG/allauth/socialaccount/models.py ./site-packages/allauth/socialaccount/models.py
+--- ./site-packages.ORG/allauth/socialaccount/models.py	2024-01-11 15:30:10.614713348 +0900
++++ ./site-packages/allauth/socialaccount/models.py	2024-01-18 10:11:56.016916994 +0900
+@@ -62,14 +62,14 @@
+     key = models.CharField(
+         verbose_name=_("key"), max_length=191, blank=True, help_text=_("Key")
+     )
+-    settings = models.JSONField(default=dict, blank=True)
++    settings = models.JSONField(default=dict, blank=True, verbose_name=_("Settings"))
+ 
+     if allauth.app_settings.SITES_ENABLED:
+         # Most apps can be used across multiple domains, therefore we use
+         # a ManyToManyField. Note that Facebook requires an app per domain
+         # (unless the domains share a common base name).
+         # blank=True allows for disabling apps without removing them
+-        sites = models.ManyToManyField("sites.Site", blank=True)
++        sites = models.ManyToManyField("sites.Site", blank=True, verbose_name=_("Sites"))
+ 
+     class Meta:
+         verbose_name = _("social application")
+@@ -84,7 +84,7 @@
+ 
+ 
+ class SocialAccount(models.Model):
+-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
++    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name=_("User"))
+     # Given a `SocialApp` from which this account originates, this field equals
+     # the app's `app.provider_id` if available, `app.provider` otherwise.
+     provider = models.CharField(
+@@ -139,7 +139,7 @@
+             return provider
+         adapter = get_adapter()
+         provider = self._provider = adapter.get_provider(
+-            request, provider=self.provider
++            request or context.request, provider=self.provider
+         )
+         return provider
+ 
+@@ -148,8 +148,8 @@
+ 
+ 
+ class SocialToken(models.Model):
+-    app = models.ForeignKey(SocialApp, on_delete=models.SET_NULL, blank=True, null=True)
+-    account = models.ForeignKey(SocialAccount, on_delete=models.CASCADE)
++    app = models.ForeignKey(SocialApp, on_delete=models.SET_NULL, blank=True, null=True, verbose_name=_("App"))
++    account = models.ForeignKey(SocialAccount, on_delete=models.CASCADE, verbose_name=_("Account"))
+     token = models.TextField(
+         verbose_name=_("token"),
+         help_text=_('"oauth_token" (OAuth1) or access token (OAuth2)'),
+@@ -279,11 +279,7 @@
+         points, if any.
+         """
+         if not self._lookup_by_socialaccount():
+-            provider_id = self.account.get_provider().id
+-            if app_settings.EMAIL_AUTHENTICATION or app_settings.PROVIDERS.get(
+-                provider_id, {}
+-            ).get("EMAIL_AUTHENTICATION", False):
+-                self._lookup_by_email()
++            self._lookup_by_email()
+ 
+     def _lookup_by_socialaccount(self):
+         assert not self.is_existing
+@@ -324,6 +320,8 @@
+     def _lookup_by_email(self):
+         emails = [e.email for e in self.email_addresses if e.verified]
+         for email in emails:
++            if not get_adapter().can_authenticate_by_email(self, email):
++                continue
+             users = filter_users_by_email(email, prefer_verified=True)
+             if users:
+                 self.user = users[0]
+diff -ruN ./site-packages.ORG/django/conf/locale/ja/LC_MESSAGES/django.po ./site-packages/django/conf/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django/conf/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:11.103732643 +0900
++++ ./site-packages/django/conf/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.468553017 +0900
+@@ -364,14 +364,14 @@
+ msgid ""
+ "Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
+ msgstr ""
+-"“slug” には半角の英数字、アンダースコア、ハイフン以外は使用できません。"
++"“スラッグ” には半角の英数字、アンダースコア(_)、ハイフン(-)以外は使用できません。"
+ 
+ msgid ""
+ "Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or "
+ "hyphens."
+ msgstr ""
+-"ユニコード文字、数字、アンダースコアまたはハイフンで構成された、有効なスラグ"
+-"を入力してください。"
++"“スラッグ” にはUnicode文字、数字、アンダースコア(_)、ハイフン(-)以外は"
++"使用できません。"
+ 
+ msgid "Enter a valid IPv4 address."
+ msgstr "有効なIPアドレス (IPv4) を入力してください。"
+@@ -450,8 +450,8 @@
+ "File extension “%(extension)s” is not allowed. Allowed extensions are: "
+ "%(allowed_extensions)s."
+ msgstr ""
+-"ファイル拡張子 “%(extension)s” は許可されていません。許可されている拡張子は "
+-"%(allowed_extensions)s です。"
++"ファイル拡張子 \"%(extension)s\" は許可されていません。許可されている拡張子は "
++"\"%(allowed_extensions)s\" です。"
+ 
+ msgid "Null characters are not allowed."
+ msgstr "何か文字を入力してください。"
+@@ -496,11 +496,11 @@
+ 
+ #, python-format
+ msgid "“%(value)s” value must be either True or False."
+-msgstr "“%(value)s” は True または False にしなければなりません。"
++msgstr "“%(value)s” には、True または False を設定してください。"
+ 
+ #, python-format
+ msgid "“%(value)s” value must be either True, False, or None."
+-msgstr "“%(value)s” は True 、 False または None の値でなければなりません。"
++msgstr "“%(value)s” には、True/False/None のいずれかを設定してください。"
+ 
+ msgid "Boolean (Either True or False)"
+ msgstr "ブール値 (真: True または偽: False)"
+@@ -517,7 +517,7 @@
+ "“%(value)s” value has an invalid date format. It must be in YYYY-MM-DD "
+ "format."
+ msgstr ""
+-"“%(value)s” は無効な日付形式です。YYYY-MM-DD 形式にしなければなりません。"
++"“%(value)s” は無効な日付形式です。YYYY-MM-DD の形式で設定してください。"
+ 
+ #, python-format
+ msgid ""
+@@ -533,15 +533,15 @@
+ "“%(value)s” value has an invalid format. It must be in YYYY-MM-DD HH:MM[:ss[."
+ "uuuuuu]][TZ] format."
+ msgstr ""
+-"“%(value)s” は無効な形式の値です。 YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] 形式で"
+-"なければなりません。"
++"“%(value)s” の日付形式が無効です。 YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] 形式で"
++"設置してください。"
+ 
+ #, python-format
+ msgid ""
+ "“%(value)s” value has the correct format (YYYY-MM-DD HH:MM[:ss[.uuuuuu]]"
+ "[TZ]) but it is an invalid date/time."
+ msgstr ""
+-"“%(value)s” は正しい形式 (YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]) の値ですが、無"
++"“%(value)s” は正しい形式 (YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]) ですが、無"
+ "効な日時です。"
+ 
+ msgid "Date (with time)"
+@@ -549,18 +549,18 @@
+ 
+ #, python-format
+ msgid "“%(value)s” value must be a decimal number."
+-msgstr "“%(value)s” は10進浮動小数値にしなければなりません。"
++msgstr "“%(value)s” は10進数で設定してください。"
+ 
+ msgid "Decimal number"
+-msgstr "10 進数 (小数可)"
++msgstr "10進数 (小数可)"
+ 
+ #, python-format
+ msgid ""
+ "“%(value)s” value has an invalid format. It must be in [DD] [[HH:]MM:]ss[."
+ "uuuuuu] format."
+ msgstr ""
+-"“%(value)s” は無効な形式の値です。 [DD] [HH:[MM:]]ss[.uuuuuu] 形式でなければ"
+-"なりません。"
++"“%(value)s” は無効な形式です。 [DD] [HH:[MM:]]ss[.uuuuuu] の形式で"
++"設定してください。"
+ 
+ msgid "Duration"
+ msgstr "時間差分"
+@@ -573,14 +573,14 @@
+ 
+ #, python-format
+ msgid "“%(value)s” value must be a float."
+-msgstr "“%(value)s” は小数値にしなければなりません。"
++msgstr "“%(value)s” は、浮動小数点数で設定してください。"
+ 
+ msgid "Floating point number"
+ msgstr "浮動小数点"
+ 
+ #, python-format
+ msgid "“%(value)s” value must be an integer."
+-msgstr "“%(value)s” は整数値にしなければなりません。"
++msgstr "“%(value)s” は、整数で設定してください。"
+ 
+ msgid "Integer"
+ msgstr "整数"
+@@ -595,11 +595,11 @@
+ msgstr "IPv4アドレス"
+ 
+ msgid "IP address"
+-msgstr "IP アドレス"
++msgstr "IPアドレス"
+ 
+ #, python-format
+ msgid "“%(value)s” value must be either None, True or False."
+-msgstr "“%(value)s” は None、True または False の値でなければなりません。"
++msgstr "“%(value)s” には、True/False/Noneのいずれかを設定してください。"
+ 
+ msgid "Boolean (Either True, False or None)"
+ msgstr "ブール値 (真: True 、偽: False または None)"
+@@ -608,14 +608,14 @@
+ msgstr "正の多倍長整数"
+ 
+ msgid "Positive integer"
+-msgstr "正の整数"
++msgstr "正整数"
+ 
+ msgid "Positive small integer"
+-msgstr "小さな正の整数"
++msgstr "狭範囲の正整数"
+ 
+ #, python-format
+ msgid "Slug (up to %(max_length)s)"
+-msgstr "スラグ(%(max_length)s文字以内)"
++msgstr "スラッグ(%(max_length)s文字以内)"
+ 
+ msgid "Text"
+ msgstr "テキスト"
+@@ -625,8 +625,7 @@
+ "“%(value)s” value has an invalid format. It must be in HH:MM[:ss[.uuuuuu]] "
+ "format."
+ msgstr ""
+-"“%(value)s” は無効な形式の値です。 HH:MM[:ss[.uuuuuu]] 形式でなければなりませ"
+-"ん。"
++"“%(value)s” は無効な形式の値です。 HH:MM[:ss[.uuuuuu]] の形式で設定してください。"
+ 
+ #, python-format
+ msgid ""
+@@ -641,14 +640,14 @@
+ msgstr "URL"
+ 
+ msgid "Raw binary data"
+-msgstr "生のバイナリデータ"
++msgstr "未加工のバイナリデータ"
+ 
+ #, python-format
+ msgid "“%(value)s” is not a valid UUID."
+ msgstr "“%(value)s” は有効なUUIDではありません。"
+ 
+ msgid "Universally unique identifier"
+-msgstr "汎用一意識別子"
++msgstr "UUID"
+ 
+ msgid "File"
+ msgstr "ファイル"
+@@ -731,19 +730,19 @@
+ 
+ msgid "Please either submit a file or check the clear checkbox, not both."
+ msgstr ""
+-"ファイルを投稿するか、クリアチェックボックスをチェックするかどちらかを選択し"
+-"てください。両方とも行ってはいけません。"
++"ファイルを投稿するか、チェックボックスにチェックをするかのどちらかを選択し"
++"てください。"
+ 
+ msgid ""
+ "Upload a valid image. The file you uploaded was either not an image or a "
+ "corrupted image."
+ msgstr ""
+-"画像をアップロードしてください。アップロードしたファイルは画像でないか、また"
+-"は壊れています。"
++"有効な画像をアップロードしてください。アップロードしたファイルは画像でないか、また"
++"は壊れていました。"
+ 
+ #, python-format
+ msgid "Select a valid choice. %(value)s is not one of the available choices."
+-msgstr "正しく選択してください。 %(value)s は候補にありません。"
++msgstr "有効な選択肢を選択してください。 %(value)s は候補にありません。"
+ 
+ msgid "Enter a list of values."
+ msgstr "リストを入力してください。"
+@@ -797,7 +796,7 @@
+ #, python-format
+ msgid "Please correct the duplicate data for %(field)s, which must be unique."
+ msgstr ""
+-"%(field)s の重複したデータを修正してください。このフィールドはユニークである"
++"%(field)s の重複したデータを修正してください。このフィールドは一意である"
+ "必要があります。"
+ 
+ #, python-format
+@@ -806,7 +805,7 @@
+ "for the %(lookup)s in %(date_field)s."
+ msgstr ""
+ "%(field_name)s の重複したデータを修正してください。%(date_field)s %(lookup)s "
+-"では %(field_name)s がユニークである必要があります。"
++"では %(field_name)s が一意である必要があります。"
+ 
+ msgid "Please correct the duplicate values below."
+ msgstr "下記の重複したデータを修正してください。"
+@@ -815,7 +814,7 @@
+ msgstr "インライン値が親のインスタンスに一致しません。"
+ 
+ msgid "Select a valid choice. That choice is not one of the available choices."
+-msgstr "正しく選択してください。選択したものは候補にありません。"
++msgstr "有効な選択肢を選択してください。選択したものは候補にありません。"
+ 
+ #, python-format
+ msgid "“%(pk)s” is not a valid value."
+@@ -826,7 +825,7 @@
+ "%(datetime)s couldn’t be interpreted in time zone %(current_timezone)s; it "
+ "may be ambiguous or it may not exist."
+ msgstr ""
+-"%(datetime)s は %(current_timezone)s のタイムゾーンでは解釈できませんでした。"
++"%(datetime)s は %(current_timezone)s で処理できませんでした。"
+ "それは曖昧であるか、存在しない可能性があります。"
+ 
+ msgid "Clear"
+@@ -1235,7 +1234,7 @@
+ 
+ #, python-format
+ msgid "Invalid date string “%(datestr)s” given format “%(format)s”"
+-msgstr "指定された形式 “%(format)s” では “%(datestr)s” は無効な日付文字列です"
++msgstr "指定された形式 “%(format)s” から生成された “%(datestr)s” は無効な日付です。"
+ 
+ #, python-format
+ msgid "No %(verbose_name)s found matching the query"
+@@ -1250,7 +1249,7 @@
+ 
+ #, python-format
+ msgid "Empty list and “%(class_name)s.allow_empty” is False."
+-msgstr "空の一覧かつ “%(class_name)s.allow_empty” が False です。"
++msgstr "空のリストと “%(class_name)s.allow_empty” が False です。"
+ 
+ msgid "Directory indexes are not allowed here."
+ msgstr "ここではディレクトリインデックスが許可されていません。"
+@@ -1290,7 +1289,7 @@
+ msgstr "Django ドキュメント"
+ 
+ msgid "Topics, references, &amp; how-to’s"
+-msgstr "トピック、リファレンス、ハウツー"
++msgstr "トピック、リファレンス、How-to"
+ 
+ msgid "Tutorial: A Polling App"
+ msgstr "チュートリアル: 投票アプリケーション"
+diff -ruN ./site-packages.ORG/django/contrib/admin/locale/ja/LC_MESSAGES/django.po ./site-packages/django/contrib/admin/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django/contrib/admin/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:11.013729091 +0900
++++ ./site-packages/django/contrib/admin/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.469553056 +0900
+@@ -45,9 +45,24 @@
+ msgid "Administration"
+ msgstr "管理"
+ 
++msgid "Filter by Role"
++msgstr "役割による絞り込み"
++
+ msgid "All"
+ msgstr "全て"
+ 
++msgid "Owner"
++msgstr "オーナー"
++
++msgid "Moderator"
++msgstr "モデレーター"
++
++msgid "Member"
++msgstr "メンバー"
++
++msgid "Non-member"
++msgstr "非メンバー"
++
+ msgid "Yes"
+ msgstr "はい"
+ 
+@@ -402,17 +417,17 @@
+ msgstr "サイト上で表示"
+ 
+ msgid "Filter"
+-msgstr "フィルター"
++msgstr "検索条件"
+ 
+ msgid "Clear all filters"
+-msgstr "全てのフィルターを解除"
++msgstr "全ての検索条件を解除"
+ 
+ msgid "Remove from sorting"
+-msgstr "ソート条件から外します"
++msgstr "並び替え条件を解除"
+ 
+ #, python-format
+ msgid "Sorting priority: %(priority_number)s"
+-msgstr "ソート優先順位: %(priority_number)s"
++msgstr "並び替え優先順位: %(priority_number)s"
+ 
+ msgid "Toggle sorting"
+ msgstr "昇順降順を切り替えます"
+@@ -540,7 +555,7 @@
+ msgstr "ユーザー"
+ 
+ msgid "Action"
+-msgstr "操作"
++msgstr "処理"
+ 
+ msgid "entry"
+ msgstr "エントリ"
+@@ -617,7 +632,7 @@
+ msgstr "パスワードの変更"
+ 
+ msgid "Your password was changed."
+-msgstr "あなたのパスワードは変更されました"
++msgstr "パスワードは変更されました"
+ 
+ msgid ""
+ "Please enter your old password, for security’s sake, and then enter your new "
+@@ -654,20 +669,20 @@
+ "used.  Please request a new password reset."
+ msgstr ""
+ "パスワードリセットのリンクが不正です。おそらくこのリンクは既に使われていま"
+-"す。もう一度パスワードリセットしてください。"
++"す。もう一度パスワードリセットをやり直してください。"
+ 
+ msgid ""
+ "We’ve emailed you instructions for setting your password, if an account "
+ "exists with the email you entered. You should receive them shortly."
+ msgstr ""
+-"入力されたメールアドレスを持つアカウントが存在する場合、パスワードを設定する"
+-"ためのメールを送信しました。すぐに届くはずです。"
++"入力されたメールアドレスを持つアカウントが存在したため、パスワードを設定する"
++"ためのメールを送信しました。メールを確認してください。"
+ 
+ msgid ""
+ "If you don’t receive an email, please make sure you’ve entered the address "
+ "you registered with, and check your spam folder."
+ msgstr ""
+-"メールが届かない場合は、登録したメールアドレスを入力したか確認し、スパムフォ"
++"メールが届かない場合は、登録したメールアドレスを入力したか確認し、迷惑メールフォ"
+ "ルダに入っていないか確認してください。"
+ 
+ #, python-format
+@@ -679,10 +694,10 @@
+ "れたため、送信されました。"
+ 
+ msgid "Please go to the following page and choose a new password:"
+-msgstr "次のページで新しいパスワードを選んでください:"
++msgstr "次のページで新しいパスワードを設定してください:"
+ 
+ msgid "Your username, in case you’ve forgotten:"
+-msgstr "あなたのユーザー名 (もし忘れていたら):"
++msgstr "ユーザー名 (確認用):"
+ 
+ msgid "Thanks for using our site!"
+ msgstr "ご利用ありがとうございました！"
+diff -ruN ./site-packages.ORG/django/contrib/admin/locale/ja/LC_MESSAGES/djangojs.po ./site-packages/django/contrib/admin/locale/ja/LC_MESSAGES/djangojs.po
+--- ./site-packages.ORG/django/contrib/admin/locale/ja/LC_MESSAGES/djangojs.po	2024-01-11 15:30:11.013729091 +0900
++++ ./site-packages/django/contrib/admin/locale/ja/LC_MESSAGES/djangojs.po	2024-01-18 09:59:31.469553056 +0900
+@@ -37,7 +37,7 @@
+ msgstr "使用可能な %s のリストを絞り込むには、このボックスに入力します。"
+ 
+ msgid "Filter"
+-msgstr "フィルター"
++msgstr "検索条件"
+ 
+ msgid "Choose all"
+ msgstr "全て選択"
+@@ -102,16 +102,16 @@
+ msgstr "現在"
+ 
+ msgid "Midnight"
+-msgstr "0時"
++msgstr "午前0時"
+ 
+ msgid "6 a.m."
+-msgstr "午前 6 時"
++msgstr "午前6時"
+ 
+ msgid "Noon"
+-msgstr "12時"
++msgstr "午後12時"
+ 
+ msgid "6 p.m."
+-msgstr "午後 6 時"
++msgstr "午後6時"
+ 
+ #, javascript-format
+ msgid "Note: You are %s hour ahead of server time."
+diff -ruN ./site-packages.ORG/django/contrib/auth/locale/ja/LC_MESSAGES/django.po ./site-packages/django/contrib/auth/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django/contrib/auth/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:10.996728421 +0900
++++ ./site-packages/django/contrib/auth/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.470553096 +0900
+@@ -73,8 +73,8 @@
+ "password, but you can change the password using <a href=\"{}\">this form</a>."
+ msgstr ""
+ "生のパスワードは格納されていないため、このユーザのパスワードを確認する方法は"
+-"ありません。しかし<a href=\"{}\">このフォーム</a>を使用してパスワードを変更で"
+-"きます。"
++"ありません。<a href=\"{}\">このフォーム</a>からパスワード変更を"
++"行ってください。"
+ 
+ #, python-format
+ msgid ""
+@@ -130,7 +130,7 @@
+ msgstr "時間コスト"
+ 
+ msgid "parallelism"
+-msgstr "並行性"
++msgstr "並列処理"
+ 
+ msgid "work factor"
+ msgstr "ワークファクター"
+diff -ruN ./site-packages.ORG/django/contrib/gis/locale/ja/LC_MESSAGES/django.po ./site-packages/django/contrib/gis/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django/contrib/gis/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:10.943726329 +0900
++++ ./site-packages/django/contrib/gis/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.470553096 +0900
+@@ -86,4 +86,4 @@
+ 
+ #, python-format
+ msgid "Slug %r isn’t registered."
+-msgstr "スラグ %r は登録されていません。"
++msgstr "スラッグ %r は登録されていません。"
+diff -ruN ./site-packages.ORG/django/contrib/postgres/locale/ja/LC_MESSAGES/django.po ./site-packages/django/contrib/postgres/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django/contrib/postgres/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:10.980727789 +0900
++++ ./site-packages/django/contrib/postgres/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.471553135 +0900
+@@ -39,7 +39,7 @@
+ msgstr "JSONデータを読み込めませんでした。"
+ 
+ msgid "Input must be a JSON dictionary."
+-msgstr "JSON辞書を入力しなければなりません。"
++msgstr "辞書型のJSONを入力しなければなりません。"
+ 
+ msgid "Enter two valid values."
+ msgstr "2つの値を正しく入力してください。"
+diff -ruN ./site-packages.ORG/django_extensions/locale/ja/LC_MESSAGES/django.po ./site-packages/django_extensions/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django_extensions/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:11.232737733 +0900
++++ ./site-packages/django_extensions/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.471553135 +0900
+@@ -41,7 +41,7 @@
+ 
+ #: db/models.py:27
+ msgid "slug"
+-msgstr "スラグ"
++msgstr "スラッグ"
+ 
+ #: db/models.py:28
+ msgid "description"
+diff -ruN ./site-packages.ORG/django_mailman3/locale/ja/LC_MESSAGES/django.po ./site-packages/django_mailman3/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django_mailman3/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:10.524709796 +0900
++++ ./site-packages/django_mailman3/locale/ja/LC_MESSAGES/django.po	2024-01-18 09:59:31.472553175 +0900
+@@ -126,7 +126,7 @@
+ #: templates/account/login.html:7 templates/account/login.html:11
+ #: templates/account/login.html:59
+ msgid "Sign In"
+-msgstr "サインイン"
++msgstr "ログイン"
+ 
+ #: templates/account/login.html:18
+ #, python-format
+@@ -194,11 +194,11 @@
+ #: templates/account/logout.html:5 templates/account/logout.html:8
+ #: templates/account/logout.html:17
+ msgid "Sign Out"
+-msgstr "サインアウト"
++msgstr "ログアウト"
+ 
+ #: templates/account/logout.html:10
+ msgid "Are you sure you want to sign out?"
+-msgstr "本当にサインアウトしますか？"
++msgstr "本当にログアウトしますか？"
+ 
+ #: templates/account/password_change.html:12
+ #: templates/account/password_reset_from_key.html:6
+@@ -351,13 +351,13 @@
+ 
+ #: templates/openid/login.html:10
+ msgid "OpenID Sign In"
+-msgstr "OpenID サインイン"
++msgstr "OpenID ログイン"
+ 
+ #: templates/socialaccount/connections.html:9
+ msgid ""
+ "You can sign in to your account using any of the following third party "
+ "accounts:"
+-msgstr "以下のサードパーティのアカウントを使ってサインインすることができます:"
++msgstr "以下のサードパーティのアカウントを使ってログインすることができます:"
+ 
+ #: templates/socialaccount/connections.html:42
+ msgid ""
+@@ -405,3 +405,21 @@
+ #: views/profile.py:110
+ msgid "Successfully deleted account"
+ msgstr "アカウントの削除に成功しました"
++
++msgid "Timezone"
++msgstr "タイムゾーン"
++
++msgid "Profile"
++msgstr "プロフィール"
++
++msgid "Profiles"
++msgstr "プロフィール"
++
++msgid "Site"
++msgstr "サイト"
++
++msgid "Mail domain"
++msgstr "メールドメイン"
++
++msgid "Mail domains"
++msgstr "メールドメイン"
+diff -ruN ./site-packages.ORG/django_mailman3/models.py ./site-packages/django_mailman3/models.py
+--- ./site-packages.ORG/django_mailman3/models.py	2024-01-11 15:30:10.516709481 +0900
++++ ./site-packages/django_mailman3/models.py	2024-01-18 10:09:49.464917746 +0900
+@@ -24,6 +24,7 @@
+ from django.conf import settings
+ from django.contrib.sites.models import Site
+ from django.db import models
++from django.utils.translation import gettext_lazy as _
+ 
+ import pytz
+ 
+@@ -35,8 +36,13 @@
+ class Profile(models.Model):
+     user = models.OneToOneField(settings.AUTH_USER_MODEL,
+                                 related_name="mailman_profile",
+-                                on_delete=models.CASCADE)
+-    timezone = models.CharField(max_length=100, choices=TIMEZONES, default="")
++                                on_delete=models.CASCADE,
++                                verbose_name=_("User"))
++    timezone = models.CharField(max_length=100, choices=TIMEZONES, default="", verbose_name=_("Timezone"))
++
++    class Meta:
++        verbose_name = _("Profile")
++        verbose_name_plural = _("Profiles")
+ 
+     def __str__(self):
+         return '<Mailman profile for %s>' % self.user.username
+@@ -44,8 +50,12 @@
+ 
+ class MailDomain(models.Model):
+     site = models.ForeignKey(Site, related_name="mailman_domains",
+-                             on_delete=models.CASCADE)
+-    mail_domain = models.CharField(max_length=255, db_index=True, unique=True)
++                             on_delete=models.CASCADE, verbose_name=_("Site"))
++    mail_domain = models.CharField(max_length=255, db_index=True, unique=True, verbose_name=_("Mail domains"))
++
++    class Meta:
++        verbose_name = _("Mail domain")
++        verbose_name_plural = _("Mail domains")
+ 
+     def __str__(self):
+         return '<Mailman domain %s>' % self.mail_domain
+diff -ruN ./site-packages.ORG/django_q/locale/ja/LC_MESSAGES/django.po ./site-packages/django_q/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/django_q/locale/ja/LC_MESSAGES/django.po	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/django_q/locale/ja/LC_MESSAGES/django.po	2024-01-18 10:03:51.304793127 +0900
+@@ -0,0 +1,485 @@
++# SOME DESCRIPTIVE TITLE.
++# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
++# This file is distributed under the same license as the PACKAGE package.
++# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
++msgid ""
++msgstr ""
++"Project-Id-Version: \n"
++"Report-Msgid-Bugs-To: \n"
++"POT-Creation-Date: 2021-01-15 15:53+0100\n"
++"PO-Revision-Date: 2018-08-05 18:28+0200\n"
++"Last-Translator: Jonas Winkler\n"
++"Language-Team: \n"
++"Language: de-DE\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"X-Generator: Poedit 2.1.1\n"
++"Plural-Forms: nplurals=2; plural=(n > 1);\n"
++
++#: admin.py:40
++msgid "Resubmit selected tasks to queue"
++msgstr "選択したタスクをキューに再送信"
++
++#: brokers/disque.py:59
++msgid "No Disque nodes configured"
++msgstr "Disqueノードが構成されていません"
++
++#: brokers/disque.py:76
++msgid "Could not connect to any Disque nodes"
++msgstr "Disqueノードに接続できませんでした"
++
++#: cluster.py:76
++#; fuzzy, python-brace-format
++#| msgid "Q Cluster-{} starting."
++msgid "Q Cluster {self.name} starting."
++msgstr "Q Cluster {self.name}が開始しています。"
++
++#: cluster.py:84
++#; fuzzy, python-brace-format
++#| msgid "Q Cluster-{} stopping."
++msgid "Q Cluster {self.name} stopping."
++msgstr "Q Cluster {self.name} が停止しています。"
++
++#: cluster.py:87
++#; fuzzy, python-brace-format
++#| msgid "Q Cluster-{} has stopped."
++msgid "Q Cluster {self.name} has stopped."
++msgstr "Q Cluster {self.name} は停止しました。"
++
++#: cluster.py:95
++msgid ""
++"{current_process().name} got signal {Conf.SIGNAL_NAMES.get(signum, \"UNKNOWN"
++"\")}"
++msgstr "{current_process().name} が {Conf.SIGNAL_NAMES.get(signum, \"UNKNOWN\")}シグナルを取得しました"
++
++#: cluster.py:216
++#; fuzzy, python-brace-format
++#| msgid "reincarnated monitor {} after sudden death"
++msgid "reincarnated monitor {process.name} after sudden death"
++msgstr "予期せぬクラッシュが発生した後、監視 {process.name} が再起動しました"
++
++#: cluster.py:219
++#; fuzzy, python-brace-format
++#| msgid "reincarnated pusher {} after sudden death"
++msgid "reincarnated pusher {process.name} after sudden death"
++msgstr "予期せぬクラッシュが発生した後、pusher {process.name} が再起動しました"
++
++#: cluster.py:226
++#; fuzzy, python-brace-format
++#| msgid "reincarnated worker {} after timeout"
++msgid "reincarnated worker {process.name} after timeout"
++msgstr "タイムアウト発生後、監視 {process.name} が再起動しました"
++
++#: cluster.py:228
++#; fuzzy, python-brace-format
++#| msgid "recycled worker {}"
++msgid "recycled worker {process.name}"
++msgstr "worker {process.name} がリサイクルされました"
++
++#: cluster.py:230
++#; fuzzy, python-brace-format
++#| msgid "reincarnated worker {} after death"
++msgid "reincarnated worker {process.name} after death"
++msgstr "予期せぬクラッシュが発生した後、監視 {process.name} が再起動しました"
++
++#: cluster.py:251
++msgid ""
++"{current_process().name} guarding cluster {humanize(self.cluster_id.hex)}"
++msgstr "{current_process().name} はクラスター{humanize(self.cluster_id.hex)} を保護します"
++
++#: cluster.py:256
++msgid "Q Cluster {humanize(self.cluster_id.hex)} running."
++msgstr "Q Cluster {humanize(self.cluster_id.hex)} は起動しています。"
++
++#: cluster.py:290
++#; fuzzy, python-brace-format
++#| msgid "{} stopping cluster processes"
++msgid "{name} stopping cluster processes"
++msgstr "{name} はクラスタープロセスを停止しました"
++
++#: cluster.py:315
++#; fuzzy, python-brace-format
++#| msgid "{} waiting for the monitor."
++msgid "{name} waiting for the monitor."
++msgstr "{name} は監視を待っています。"
++
++#: cluster.py:337
++msgid "{current_process().name} pushing tasks at {current_process().pid}"
++msgstr "{current_process().name} は {current_process().pid} にタスクを追加しました"
++
++#: cluster.py:358
++#; fuzzy, python-brace-format
++#| msgid "queueing from {}"
++msgid "queueing from {broker.list_key}"
++msgstr "{broker.list_key} からのキューイング"
++
++#: cluster.py:361
++#; fuzzy
++#| msgid "{} stopped pushing tasks"
++msgid "{current_process().name} stopped pushing tasks"
++msgstr "{current_process().name} はタスクの追加を停止しました"
++
++#: cluster.py:373
++#; fuzzy
++#| msgid "{} monitoring at {}"
++msgid "{name} monitoring at {current_process().pid}"
++msgstr "{name} は{current_process().pid} で監視しています"
++
++#: cluster.py:387
++#; fuzzy
++#| msgid "Processed [{}]"
++msgid "Processed [{task['name']}]"
++msgstr "処理完了 [{task['name']}]"
++
++#: cluster.py:390
++msgid "Failed [{task['name']}] - {task['result']}"
++msgstr "失敗 [{task['name']}] - {task['result']}"
++
++#: cluster.py:391
++#; fuzzy, python-brace-format
++#| msgid "{} stopped monitoring results"
++msgid "{name} stopped monitoring results"
++msgstr "{name} は結果の監視を停止しました"
++
++#: cluster.py:405
++#; fuzzy
++#| msgid "{} ready for work at {}"
++msgid "{name} ready for work at {current_process().pid}"
++msgstr "{name} は{current_process().pid}で既に稼働しています"
++
++#: cluster.py:415
++#; fuzzy
++#| msgid "{} processing [{}]"
++msgid "{name} processing [{task[\"name\"]}]"
++msgstr "{name}は[{task[\"name\"]}]で処理中です"
++
++#: cluster.py:455
++#; fuzzy, python-brace-format
++#| msgid "{} stopped doing work"
++msgid "{name} stopped doing work"
++msgstr "{name}は終了しました"
++
++#: cluster.py:619 models.py:143
++msgid "Please install croniter to enable cron expressions"
++msgstr "cronの式を有効にするには、croniterをインストールしてください"
++
++#: cluster.py:644
++#: fuzzy
++#| msgid "{} failed to create a task from schedule [{}]"
++msgid ""
++"{current_process().name} failed to create a task from schedule [{s.name or s."
++"id}]"
++msgstr "{current_process().name} は [{s.name or s.id}] のスケジュールからタスクを作成できませんでした"
++
++#: cluster.py:650
++#: fuzzy
++#| msgid "{} created a task from schedule [{}]"
++msgid ""
++"{current_process().name} created a task from schedule [{s.name or s.id}]"
++msgstr "{current_process().name} は [{s.name or s.id}] のスケジュールからタスクを作成しました"
++
++#: cluster.py:716
++#; fuzzy, python-brace-format
++#| msgid "{} will use cpu {}"
++msgid "{pid} will use cpu {affinity}"
++msgstr "{pid}はcpu{affinity}を使用します"
++
++#. Translators: Cluster status descriptions
++#: conf.py:184
++msgid "Starting"
++msgstr "開始"
++
++#: conf.py:185
++msgid "Working"
++msgstr "稼働中"
++
++#: conf.py:186
++msgid "Idle"
++msgstr "休止"
++
++#: conf.py:187
++msgid "Stopped"
++msgstr "停止"
++
++#: conf.py:188
++msgid "Stopping"
++msgstr "停止中"
++
++#. Translators: help text for qcluster management command
++#: management/commands/qcluster.py:9
++msgid "Starts a Django Q Cluster."
++msgstr "Django Q Clusterを開始します。"
++
++#. Translators: help text for qinfo management command
++#: management/commands/qinfo.py:11
++msgid "General information over all clusters."
++msgstr "全てのクラスターの一般情報"
++
++#. Translators: help text for qmonitor management command
++#: management/commands/qmonitor.py:9
++msgid "Monitors Q Cluster activity"
++msgstr "Q Cluster activityの監視"
++
++# models.py:27
++msgid "Result"
++msgstr "結果"
++
++# models.py:28
++msgid "Group"
++msgstr "グループ"
++
++# models.py:32
++msgid "Attempt_count"
++msgstr "試行回数"
++
++#: models.py:118
++msgid "Successful task"
++msgstr "成功したタスク"
++
++#: models.py:119
++msgid "Successful tasks"
++msgstr "成功したタスク"
++
++#: models.py:134
++msgid "Failed task"
++msgstr "失敗したタスク"
++
++#: models.py:135
++msgid "Failed tasks"
++msgstr "失敗したタスク"
++
++#: models.py:159
++msgid "e.g. 1, 2, 'John'"
++msgstr "例:  1, 2, 'John'"
++
++#: models.py:161
++msgid "e.g. x=1, y=2, name='John'"
++msgstr "例: x=1, y=2, name='John'"
++
++#: models.py:173
++msgid "Once"
++msgstr "1回のみ"
++
++#: models.py:174
++msgid "Minutes"
++msgstr "毎分"
++
++#: models.py:175
++msgid "Hourly"
++msgstr "毎時"
++
++#: models.py:181
++msgid "Cron"
++msgstr "Cron"
++
++#: models.py:151
++msgid "Name"
++msgstr "名前"
++
++#: models.py:152
++msgid "Func"
++msgstr "機能"
++
++#: models.py:152
++msgid "e.g. module.tasks.function"
++msgstr "例: module.tasks.function"
++
++#: models.py:154
++msgid "Hook"
++msgstr "フック"
++
++#: models.py:158
++msgid "e.g. module.tasks.result_function"
++msgstr "例: module.tasks.result_function"
++
++#: models.py:164
++msgid "Args"
++msgstr "配列(args)"
++
++#: models.py:162
++msgid "Kwargs"
++msgstr "連想配列(kwargs)"
++
++#: models.py:184
++msgid "group"
++msgstr "グループ"
++
++#: models.py:184
++msgid "Schedule Type"
++msgstr "スケジュールタイプ"
++
++#: models.py:187
++msgid "Number of minutes for the Minutes type"
++msgstr "間隔を分単位で設定します"
++
++#: models.py:190
++msgid "Repeats"
++msgstr "繰り返し"
++
++#: models.py:190
++msgid "n = n times, -1 = forever"
++msgstr "n = n 回, -1 = 無限"
++
++#: models.py:193
++msgid "Next Run"
++msgstr "次の実行"
++
++#: models.py:164
++msgid "Cluster"
++msgstr "クラスター"
++
++#: models.py:200
++msgid "Cron expression"
++msgstr "cronの式"
++
++msgid "LAST RUN"
++msgstr "最終実行日"
++
++msgid "SUCCESS"
++msgstr "成功"
++
++#: models.py:226
++msgid "Scheduled task"
++msgstr "スケジュールされたタスク"
++
++#: models.py:227
++msgid "Scheduled tasks"
++msgstr "スケジュールされたタスク"
++
++#: models.py:250
++msgid "Queued task"
++msgstr "キューに入れられたタスク"
++
++#: models.py:251
++msgid "Queued tasks"
++msgstr "キューに入れられたタスク"
++
++#: monitor.py:35
++msgid "Host"
++msgstr "ホスト"
++
++#: monitor.py:39
++msgid "Id"
++msgstr "ID"
++
++#: monitor.py:43
++msgid "State"
++msgstr ""
++
++#: monitor.py:47
++msgid "Pool"
++msgstr ""
++
++#: monitor.py:51
++msgid "TQ"
++msgstr ""
++
++#: monitor.py:55
++msgid "RQ"
++msgstr ""
++
++#: monitor.py:59
++msgid "RC"
++msgstr ""
++
++#: monitor.py:63
++msgid "Up"
++msgstr ""
++
++#: monitor.py:143 monitor.py:247
++msgid "Queued"
++msgstr "キューに追加しました"
++
++#: monitor.py:151
++msgid "Success"
++msgstr "成功"
++
++#: monitor.py:161 monitor.py:255
++msgid "Failures"
++msgstr "失敗"
++
++#: monitor.py:172
++msgid "[Press q to quit]"
++msgstr "[qを押して終了]"
++
++#: monitor.py:191
++msgid "day"
++msgstr "日"
++
++#: monitor.py:212
++msgid "second"
++msgstr "秒"
++
++#: monitor.py:215
++msgid "minute"
++msgstr "分"
++
++#: monitor.py:218
++msgid "hour"
++msgstr "時"
++
++#: monitor.py:228
++msgid ""
++"-- {Conf.PREFIX.capitalize()} { \".\".join(str(v) for v in VERSION)} on "
++"{broker.info()}  --"
++msgstr ""
++
++#: monitor.py:234
++msgid "Clusters"
++msgstr "クラスター"
++
++#: monitor.py:238
++msgid "Workers"
++msgstr ""
++
++#: monitor.py:242
++msgid "Restarts"
++msgstr "再起動"
++
++#: monitor.py:251
++msgid "Successes"
++msgstr "成功"
++
++#: monitor.py:260
++msgid "Schedules"
++msgstr "スケジュール"
++
++#: monitor.py:264
++#; fuzzy, python-brace-format
++#| msgid "Tasks/{}"
++msgid "Tasks/{per}"
++msgstr "タスク/{per}"
++
++#: monitor.py:268
++msgid "Avg time"
++msgstr "平均時間"
++
++#: signals.py:22
++#; fuzzy, python-brace-format
++#| msgid "malformed return hook '{}' for [{}]"
++msgid "malformed return hook '{instance.hook}' for [{instance.name}]"
++msgstr " [{instance.name}]での不正なリターンフック '{instance.hook}'"
++
++#: signals.py:30
++#; fuzzy
++#| msgid "return hook {} failed on [{}] because {}"
++msgid ""
++"return hook {instance.hook} failed on [{instance.name}] because {str(e)}"
++msgstr "{str(e)} が原因でリターンフック{instance.hook}が [{instance.name}]で失敗しました"
++
++
++###############
++# smori
++###############
++msgid "Started"
++msgstr "開始"
++
++msgid "Time Taken"
++msgstr "経過時間"
++
++msgid "Last run"
++msgstr "最終実行日"
++
++msgid "Key"
++msgstr "キー"
+diff -ruN ./site-packages.ORG/django_q/models.py ./site-packages/django_q/models.py
+--- ./site-packages.ORG/django_q/models.py	2024-01-11 15:30:10.512709323 +0900
++++ ./site-packages/django_q/models.py	2024-01-18 10:10:38.093838760 +0900
+@@ -18,18 +18,18 @@
+ 
+ 
+ class Task(models.Model):
+-    id = models.CharField(max_length=32, primary_key=True, editable=False)
+-    name = models.CharField(max_length=100, editable=False)
+-    func = models.CharField(max_length=256)
+-    hook = models.CharField(max_length=256, null=True)
+-    args = PickledObjectField(null=True, protocol=-1)
+-    kwargs = PickledObjectField(null=True, protocol=-1)
+-    result = PickledObjectField(null=True, protocol=-1)
+-    group = models.CharField(max_length=100, editable=False, null=True)
+-    started = models.DateTimeField(editable=False)
+-    stopped = models.DateTimeField(editable=False)
+-    success = models.BooleanField(default=True, editable=False)
+-    attempt_count = models.IntegerField(default=0)
++    id = models.CharField(max_length=32, primary_key=True, editable=False, verbose_name=_("Id"))
++    name = models.CharField(max_length=100, editable=False, verbose_name=_("Name"))
++    func = models.CharField(max_length=256, verbose_name=_("Func"))
++    hook = models.CharField(max_length=256, null=True, verbose_name=_("Hook"))
++    args = PickledObjectField(null=True, protocol=-1, verbose_name=_("Args"))
++    kwargs = PickledObjectField(null=True, protocol=-1, verbose_name=_("Kwargs"))
++    result = PickledObjectField(null=True, protocol=-1, verbose_name=_("Result"))
++    group = models.CharField(max_length=100, editable=False, null=True, verbose_name=_("Group"))
++    started = models.DateTimeField(editable=False, verbose_name=_("Started"))
++    stopped = models.DateTimeField(editable=False, verbose_name=_("Stopped"))
++    success = models.BooleanField(default=True, editable=False, verbose_name=_("Success"))
++    attempt_count = models.IntegerField(default=0, verbose_name=_("Attempt_count"))
+ 
+     @staticmethod
+     def get_result(task_id):
+@@ -148,17 +148,18 @@
+ 
+ 
+ class Schedule(models.Model):
+-    name = models.CharField(max_length=100, null=True, blank=True)
+-    func = models.CharField(max_length=256, help_text="e.g. module.tasks.function")
++    name = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Name"))
++    func = models.CharField(max_length=256, verbose_name=_("Func"), help_text=_("e.g. module.tasks.function"))
+     hook = models.CharField(
+         max_length=256,
+         null=True,
+         blank=True,
+-        help_text="e.g. module.tasks.result_function",
++        verbose_name=_("Hook"),
++        help_text=_("e.g. module.tasks.result_function")
+     )
+-    args = models.TextField(null=True, blank=True, help_text=_("e.g. 1, 2, 'John'"))
++    args = models.TextField(null=True, blank=True, verbose_name=_("Args"), help_text=_("e.g. 1, 2, 'John'"))
+     kwargs = models.TextField(
+-        null=True, blank=True, help_text=_("e.g. x=1, y=2, name='John'")
++        null=True, blank=True, verbose_name=_("Kwargs"), help_text=_("e.g. x=1, y=2, name='John'")
+     )
+     ONCE = "O"
+     MINUTES = "I"
+@@ -184,7 +185,7 @@
+         max_length=1, choices=TYPE, default=TYPE[0][0], verbose_name=_("Schedule Type")
+     )
+     minutes = models.PositiveSmallIntegerField(
+-        null=True, blank=True, help_text=_("Number of minutes for the Minutes type")
++        null=True, blank=True, verbose_name=_("Minutes"), help_text=_("Number of minutes for the Minutes type")
+     )
+     repeats = models.IntegerField(
+         default=-1, verbose_name=_("Repeats"), help_text=_("n = n times, -1 = forever")
+@@ -197,10 +198,11 @@
+         null=True,
+         blank=True,
+         validators=[validate_cron],
+-        help_text=_("Cron expression"),
++        verbose_name=_("Cron"),
++        help_text=_("Cron expression")
+     )
+     task = models.CharField(max_length=100, null=True, editable=False)
+-    cluster = models.CharField(max_length=100, default=None, null=True, blank=True)
++    cluster = models.CharField(max_length=100, default=None, null=True, blank=True, verbose_name=_("Cluster"))
+ 
+     def success(self):
+         if self.task and Task.objects.filter(id=self.task):
+@@ -230,9 +232,9 @@
+ 
+ 
+ class OrmQ(models.Model):
+-    key = models.CharField(max_length=100)
+-    payload = models.TextField()
+-    lock = models.DateTimeField(null=True)
++    key = models.CharField(max_length=100, verbose_name=_("Key"))
++    payload = models.TextField(verbose_name=_("Payload"))
++    lock = models.DateTimeField(null=True, verbose_name=_("Lock"))
+ 
+     def task(self):
+         return SignedPackage.loads(self.payload)
+diff -ruN ./site-packages.ORG/hyperkitty/locale/ja/LC_MESSAGES/django.po ./site-packages/hyperkitty/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/hyperkitty/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:10.829721831 +0900
++++ ./site-packages/hyperkitty/locale/ja/LC_MESSAGES/django.po	2024-01-18 10:04:46.773979158 +0900
+@@ -29,7 +29,7 @@
+ 
+ #: forms.py:56
+ msgid "use commas to add multiple tags"
+-msgstr "複数のタグを追加するにはカンマを使います"
++msgstr "カンマを使用して複数のタグを追加できます"
+ 
+ #: forms.py:64
+ msgid "Attach a file"
+@@ -56,7 +56,7 @@
+ msgstr "ページを見つけることができません。"
+ 
+ #: templates/hyperkitty/404.html:33 templates/hyperkitty/500.html:34
+-msgid "Go back home"
++msgid "Go back homeカンマを使用して複数のタグを追加できます"
+ msgstr "ホームに戻る"
+ 
+ #: templates/hyperkitty/500.html:29
+@@ -98,8 +98,8 @@
+ "HyperKitty comes with a small REST API allowing you to programatically "
+ "retrieve emails and information."
+ msgstr ""
+-"HyperKitty には簡単な REST API が付属しておりメールや情報をプログラムで取得で"
+-"きます。"
++"HyperKittyでは、REST APIを利用することができます。"
++"REST APIにより、メールアドレスや様々な情報をプログラムで取得できます。"
+ 
+ #: templates/hyperkitty/api.html:10
+ msgid "Formats"
+@@ -110,8 +110,8 @@
+ "This REST API can return the information into several formats.  The default "
+ "format is html to allow human readibility."
+ msgstr ""
+-"この REST API では複数のフォーマットで情報を取得できます。デフォルトのフォー"
+-"マットは人間が読みやすい html です。"
++"この REST API では様々な形式で情報を取得できます。デフォルトのフォー"
++"HTML型式です。"
+ 
+ #: templates/hyperkitty/api.html:14
+ msgid ""
+@@ -143,7 +143,7 @@
+ "Using this address you will be able to retrieve the information known about "
+ "all the mailing lists."
+ msgstr ""
+-"このアドレスを使うことで全てのメーリングリストについての情報を取得することが"
++"このアドレスを使用すると、全てのメーリングリストに関する情報を取得"
+ "できます。"
+ 
+ #: templates/hyperkitty/api.html:32
+@@ -155,7 +155,7 @@
+ "Using this address you will be able to retrieve information about all the "
+ "threads on the specified mailing list."
+ msgstr ""
+-"このアドレスを使うことで指定したメーリングリストの全てのスレッドの情報を取得"
++"このアドレスを使用すると、指定したメーリングリストの全てのスレッドの情報を取得"
+ "することができます。"
+ 
+ #: templates/hyperkitty/api.html:38
+@@ -185,7 +185,7 @@
+ 
+ #: templates/hyperkitty/api.html:53
+ msgid "Using this address you will be able to retrieve the list of tags."
+-msgstr "このアドレスを使うことでタグのリストを取得できます。"
++msgstr "このアドレスを使用すると、タグの一覧を取得できます。"
+ 
+ #: templates/hyperkitty/base.html:54 templates/hyperkitty/base.html:143
+ msgid "Account"
+@@ -206,7 +206,7 @@
+ 
+ #: templates/hyperkitty/base.html:77 templates/hyperkitty/base.html:104
+ msgid "Sign In"
+-msgstr "サインイン"
++msgstr "ログイン"
+ 
+ #: templates/hyperkitty/base.html:81 templates/hyperkitty/base.html:108
+ msgid "Sign Up"
+@@ -254,7 +254,7 @@
+ 
+ #: templates/hyperkitty/base.html:217
+ msgid "Powered by"
+-msgstr "Powered by"
++msgstr "提供元"
+ 
+ #: templates/hyperkitty/base.html:217
+ msgid "version"
+@@ -591,7 +591,7 @@
+ msgstr "オンラインで返信するにはサインインしてください"
+ 
+ #: templates/hyperkitty/messages/message.html:107
+-#, python-format
++#: fuzzy, python-format
+ msgid ""
+ "\n"
+ "                %(email.attachments.count)s attachment\n"
+@@ -874,7 +874,7 @@
+ msgstr "%(num_comments)s コメント"
+ 
+ #: templates/hyperkitty/threads/right_col.html:51
+-#, python-format
++#: fuzzy, python-format
+ msgid "%(participants_count)s participants"
+ msgstr "%(participants_count)s 参加者"
+ 
+@@ -1199,8 +1199,8 @@
+ msgstr "メーリングリストを削除するには権限が必要です"
+ 
+ #: views/mlist.py:421
+-msgid "Successfully deleted {}"
+-msgstr "{} の削除が成功しました"
++msgid "Successfully deleted %s"
++msgstr "%s の削除が成功しました"
+ 
+ #: views/search.py:115
+ #, python-format
+@@ -1222,10 +1222,10 @@
+ #~ msgid "Stats"
+ #~ msgstr "統計"
+ 
+-#~ msgid "Threads"
+-#~ msgstr "スレッド"
++msgid "Threads"
++msgstr "スレッド"
+ 
+-#, fuzzy
++#: fuzzy
+ #~| msgid "new"
+ #~ msgid "New"
+ #~ msgstr "新規"
+@@ -1260,20 +1260,20 @@
+ #~ "                    by %(name)s\n"
+ #~ "                    "
+ 
+-#~ msgid "unread"
+-#~ msgstr "未読"
++msgid "unread"
++msgstr "未読"
+ 
+-#~ msgid "Discussions"
+-#~ msgstr "議論"
++msgid "Discussions"
++msgstr "議論"
+ 
+-#~ msgid "most recent"
+-#~ msgstr "最新"
++msgid "most recent"
++msgstr "最新"
+ 
+-#~ msgid "most popular"
+-#~ msgstr "最も人気"
++msgid "most popular"
++msgstr "最も人気"
+ 
+-#~ msgid "most active"
+-#~ msgstr "最も活発"
++msgid "most active"
++msgstr "最も活発"
+ 
+ #~ msgid ""
+ #~ "\n"
+@@ -1283,3 +1283,136 @@
+ #~ "\n"
+ #~ "                                        by %(name)s\n"
+ #~ "                                    "
++
++#: templates/hyperkitty/threads/right_col.html:33
++msgid "Manage subscription"
++msgstr "購読のトップ画面へ"
++
++#: models/vote.py:51
++msgid "Emails"
++msgstr "メール"
++
++#: models/vote.py:51
++msgid "Value"
++msgstr "値"
++
++#: models/tag.py:52
++msgid "Tag"
++msgstr "タグ"
++
++#: models/tag.py:42
++msgid "Name"
++msgstr "名前"
++
++#: models/tag.py:46
++msgid "Users"
++msgstr "ユーザー"
++
++#: models/tag.py:32
++msgid "User"
++msgstr "ユーザー"
++
++#: models/thread.py.py:
++msgid "Mailinglist"
++msgstr "メーリングリスト"
++
++#: models/thread.py.py:
++msgid "Thread id"
++msgstr "スレッドID"
++
++#: models/thread.py.py:
++msgid "Date active"
++msgstr "投稿日"
++
++#: models/thread.py.py:
++msgid "Category"
++msgstr "カテゴリー"
++
++#: models/thread.py.py:
++msgid "Starting email"
++msgstr "親スレッド"
++
++#: models/email.py:
++msgid "Email"
++msgstr "メール"
++
++#: models/email.py:
++msgid "MailingList"
++msgstr "メーリングリスト"
++
++#: models/email.py:
++msgid "Message id"
++msgstr "メッセージID"
++
++#: models/email.py:
++msgid "Message id hash"
++msgstr "メッセージIDのハッシュ値"
++
++#: models/email.py:
++msgid "Sender name"
++msgstr "投稿者名"
++
++#: models/email.py:
++msgid "Content"
++msgstr "内容"
++
++#: models/email.py:
++msgid "In reply to"
++msgstr "In-Reply-Toヘッダー"
++
++#: models/email.py:
++msgid "Parent"
++msgstr "親スレッド"
++
++#: models/email.py:
++msgid "Archived date"
++msgstr "アーカイブ日"
++
++#: models/email.py:
++msgid "Thread depth"
++msgstr "スレッドの階層"
++
++#: models/email.py:
++msgid "Thread order"
++msgstr "スレッドの順番"
++
++#: models/mailinglist.py:
++msgid "Mailing list"
++msgstr "メーリングリスト"
++
++#: models/mailinglist.py:
++msgid "Mailing lists"
++msgstr "メーリングリスト"
++
++#: models/mailinglist.py:
++msgid "List id"
++msgstr "メーリングリストID"
++
++#: models/mailinglist.py:
++msgid "Archive rendering mode"
++msgstr "アーカイブレンダリングモード"
++
++msgid "Last view"
++msgstr "最終閲覧日"
++
++msgid "Last views"
++msgstr "最終閲覧日"
++
++msgid "Color"
++msgstr "色"
++
++msgid "The message has been sent successfully."
++msgstr "メッセージを送信しました"
++
++#: templates/hyperkitty/message_new.html:41
++msgid "Message"
++msgstr "本文"
++
++#: models/category.py
++msgid "Thread category"
++msgstr "スレッドカテゴリー"
++
++#: models/category.py
++msgid "Thread categories"
++msgstr "スレッドカテゴリー"
++
+diff -ruN ./site-packages.ORG/hyperkitty/models/category.py ./site-packages/hyperkitty/models/category.py
+--- ./site-packages.ORG/hyperkitty/models/category.py	2024-01-11 15:30:10.841722305 +0900
++++ ./site-packages/hyperkitty/models/category.py	2024-01-18 10:11:10.440116550 +0900
+@@ -29,6 +29,7 @@
+ from django.db import models
+ from django.forms import TextInput
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ # Max length of a color's hex code is 7, which includes a preceding '#'.
+ MAX_COLOR_LENGTH = 7
+@@ -62,11 +63,12 @@
+ 
+ 
+ class ThreadCategory(models.Model):
+-    name = models.CharField(max_length=255, db_index=True, unique=True)
+-    color = ColorField()
++    name = models.CharField(max_length=255, db_index=True, unique=True, verbose_name=_("Name"))
++    color = ColorField(verbose_name=_("Color"))
+ 
+     class Meta:
+-        verbose_name_plural = "Thread categories"
++        verbose_name = _("Thread category")
++        verbose_name_plural = _("Thread categories")
+ 
+     def __str__(self):
+         return 'Thread category "%s"' % self.name
+diff -ruN ./site-packages.ORG/hyperkitty/models/email.py ./site-packages/hyperkitty/models/email.py
+--- ./site-packages.ORG/hyperkitty/models/email.py	2024-01-11 15:30:10.841722305 +0900
++++ ./site-packages/hyperkitty/models/email.py	2024-01-18 10:10:54.815499324 +0900
+@@ -38,6 +38,7 @@
+ from .thread import Thread
+ from .vote import Vote
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -48,18 +49,18 @@
+     name and the message id.
+     """
+     mailinglist = models.ForeignKey(
+-        "MailingList", related_name="emails", on_delete=models.CASCADE)
+-    message_id = models.CharField(max_length=255, db_index=True)
+-    message_id_hash = models.CharField(max_length=255, db_index=True)
++        "MailingList", related_name="emails", on_delete=models.CASCADE, verbose_name=_("MailingList"))
++    message_id = models.CharField(max_length=255, db_index=True, verbose_name=_("Message id"))
++    message_id_hash = models.CharField(max_length=255, db_index=True, verbose_name=_("Message id hash"))
+     sender = models.ForeignKey(
+-        "Sender", related_name="emails", on_delete=models.CASCADE)
+-    sender_name = models.CharField(max_length=255, null=True, blank=True)
+-    subject = models.CharField(max_length=512, db_index=True)
+-    content = models.TextField()
+-    date = models.DateTimeField(db_index=True)
+-    timezone = models.SmallIntegerField()
++        "Sender", related_name="emails", on_delete=models.CASCADE, verbose_name=_("Sender"))
++    sender_name = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Sender name"))
++    subject = models.CharField(max_length=512, db_index=True, verbose_name=_("Subject"))
++    content = models.TextField(verbose_name=_("Content"))
++    date = models.DateTimeField(db_index=True, verbose_name=_("Date"))
++    timezone = models.SmallIntegerField(verbose_name=_("Timezone"))
+     in_reply_to = models.CharField(
+-        max_length=255, null=True, blank=True, db_index=True)
++        max_length=255, null=True, blank=True, db_index=True, verbose_name=_("In reply to"))
+     # XXX(maxking): Delete behavior is handled by on_pre_delete(). Since we
+     # manually make sure that we set and unset parents and handle the fact that
+     # they can't be None for more than one Email in a thread, we don't want
+@@ -67,12 +68,12 @@
+     # on_delete=DO_NOTHING and db_constraint=False.
+     parent = models.ForeignKey(
+         "self", blank=True, null=True, on_delete=models.DO_NOTHING,
+-        related_name="children", db_constraint=False)
++        related_name="children", db_constraint=False, verbose_name=_("Parent"))
+     thread = models.ForeignKey(
+-        "Thread", related_name="emails", on_delete=models.CASCADE)
+-    archived_date = models.DateTimeField(default=now, db_index=True)
+-    thread_depth = models.IntegerField(default=0)
+-    thread_order = models.IntegerField(null=True, blank=True, db_index=True)
++        "Thread", related_name="emails", on_delete=models.CASCADE, verbose_name=_("Thread"))
++    archived_date = models.DateTimeField(default=now, db_index=True, verbose_name=_("Archived date"))
++    thread_depth = models.IntegerField(default=0, verbose_name=_("Thread depth"))
++    thread_order = models.IntegerField(null=True, blank=True, db_index=True, verbose_name=_("Thread order"))
+ 
+     ADDRESS_REPLACE_RE = re.compile(r"([\w.+-]+)@([\w.+-]+)")
+ 
+@@ -87,6 +88,8 @@
+ 
+     class Meta:
+         unique_together = ("mailinglist", "message_id")
++        verbose_name = _("Email")
++        verbose_name_plural = _("Emails")
+ 
+     def get_votes(self):
+         return self.cached_values["votes"]()
+diff -ruN ./site-packages.ORG/hyperkitty/models/favorite.py ./site-packages/hyperkitty/models/favorite.py
+--- ./site-packages.ORG/hyperkitty/models/favorite.py	2024-01-11 15:30:10.841722305 +0900
++++ ./site-packages/hyperkitty/models/favorite.py	2024-01-18 10:11:02.268793755 +0900
+@@ -23,14 +23,19 @@
+ from django.conf import settings
+ from django.db import models
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ class Favorite(models.Model):
+     thread = models.ForeignKey(
+-        "Thread", related_name="favorites", on_delete=models.CASCADE)
++        "Thread", related_name="favorites", on_delete=models.CASCADE, verbose_name=_("Thread"))
+     user = models.ForeignKey(
+         settings.AUTH_USER_MODEL,
+-        related_name="favorites", on_delete=models.CASCADE)
++        related_name="favorites", on_delete=models.CASCADE, verbose_name=_("User"))
+ 
+     def __str__(self):
+         return "%s is a favorite of %s" % (
+             str(self.thread), str(self.user))
++
++    class Meta:
++        verbose_name = _("Favorite")
++        verbose_name_plural = _("Favorites")
+diff -ruN ./site-packages.ORG/hyperkitty/models/mailinglist.py ./site-packages/hyperkitty/models/mailinglist.py
+--- ./site-packages.ORG/hyperkitty/models/mailinglist.py	2024-01-11 15:30:10.841722305 +0900
++++ ./site-packages/hyperkitty/models/mailinglist.py	2024-01-18 10:11:16.960374124 +0900
+@@ -38,6 +38,7 @@
+ from .common import ModelCachedValue
+ from .thread import Thread
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -66,28 +67,35 @@
+     """
+     An archived mailing-list.
+     """
+-    name = models.CharField(db_index=True, max_length=254, unique=True)
+-    list_id = models.CharField(max_length=254, null=True, unique=True)
+-    display_name = models.CharField(max_length=255)
+-    description = models.TextField(null=True)
+-    subject_prefix = models.CharField(max_length=255)
++    name = models.CharField(db_index=True, max_length=254, unique=True, verbose_name=_("Name"))
++    list_id = models.CharField(max_length=254, null=True, unique=True, verbose_name=_("List id"))
++    display_name = models.CharField(max_length=255, verbose_name=_("Display name"))
++    description = models.TextField(null=True, verbose_name=_("Description"))
++    subject_prefix = models.CharField(max_length=255, verbose_name=_("Subject prefix"))
+     archive_policy = models.IntegerField(
+         choices=[(p.value, p.name) for p in ArchivePolicy],
+-        default=ArchivePolicy.public.value)
+-    created_at = models.DateTimeField(default=now)
+-    archive_rendering_mode = models.CharField(max_length=255, null=True)
++        default=ArchivePolicy.public.value,
++        verbose_name=_("Archive policy"))
++    created_at = models.DateTimeField(default=now, verbose_name=_("Created at"))
++    archive_rendering_mode = models.CharField(max_length=255, null=True, verbose_name=_("Archive rendering mode"))
+ 
+     owners = models.ManyToManyField(settings.AUTH_USER_MODEL,
+-                                    related_name='owned_lists')
++                                    related_name='owned_lists',
++                                    verbose_name=_("Owners"))
+ 
+     moderators = models.ManyToManyField(settings.AUTH_USER_MODEL,
+-                                        related_name='moderated_lists')
++                                        related_name='moderated_lists',
++                                        verbose_name=_("Moderators"))
+ 
+     MAILMAN_ATTRIBUTES = (
+         "display_name", "description", "subject_prefix",
+         "archive_policy", "created_at", "list_id", "archive_rendering_mode",
+     )
+ 
++    class Meta:
++        verbose_name = _("Mailing list")
++        verbose_name_plural = _("Mailing lists")
++
+     def __init__(self, *args, **kwargs):
+         super(MailingList, self).__init__(*args, **kwargs)
+         self.cached_values = {
+@@ -293,7 +301,6 @@
+ 
+     on_vote_deleted = on_vote_added
+ 
+-
+ class RecentThreads(ModelCachedValue):
+ 
+     cache_key = "recent_threads"
+diff -ruN ./site-packages.ORG/hyperkitty/models/profile.py ./site-packages/hyperkitty/models/profile.py
+--- ./site-packages.ORG/hyperkitty/models/profile.py	2024-01-11 15:30:10.841722305 +0900
++++ ./site-packages/hyperkitty/models/profile.py	2024-01-18 10:11:24.147658045 +0900
+@@ -29,6 +29,7 @@
+ 
+ from .email import Email
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -36,8 +37,13 @@
+ class Profile(models.Model):
+     user = models.OneToOneField(settings.AUTH_USER_MODEL,
+                                 related_name="hyperkitty_profile",
+-                                on_delete=models.CASCADE)
+-    karma = models.IntegerField(default=1)
++                                on_delete=models.CASCADE,
++                                verbose_name=_("User"))
++    karma = models.IntegerField(default=1, verbose_name=_("Karma"))
++
++    class Meta:
++        verbose_name = _("Profile")
++        verbose_name_plural = _("Profiles")
+ 
+     def __str__(self):
+         return '%s' % (str(self.user))
+@@ -64,3 +70,4 @@
+     def get_first_post(self, mlist):
+         return self.emails.filter(
+             mailinglist=mlist).order_by("archived_date").first()
++
+diff -ruN ./site-packages.ORG/hyperkitty/models/tag.py ./site-packages/hyperkitty/models/tag.py
+--- ./site-packages.ORG/hyperkitty/models/tag.py	2024-01-11 15:30:10.842722344 +0900
++++ ./site-packages/hyperkitty/models/tag.py	2024-01-18 10:11:30.105893417 +0900
+@@ -23,6 +23,7 @@
+ from django.conf import settings
+ from django.db import models
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ class Tagging(models.Model):
+ 
+@@ -38,7 +39,7 @@
+ 
+ class Tag(models.Model):
+ 
+-    name = models.CharField(max_length=255, db_index=True, unique=True)
++    name = models.CharField(max_length=255, db_index=True, unique=True, verbose_name=_("Name"))
+     threads = models.ManyToManyField(
+         "Thread", through="Tagging", related_name="tags")
+     users = models.ManyToManyField(
+@@ -46,6 +47,8 @@
+ 
+     class Meta:
+         ordering = ["name"]
++        verbose_name = _("Tag")
++        verbose_name_plural = _("Tags")
+ 
+     def __str__(self):
+         return 'Tag %s' % self.name
+diff -ruN ./site-packages.ORG/hyperkitty/models/thread.py ./site-packages/hyperkitty/models/thread.py
+--- ./site-packages.ORG/hyperkitty/models/thread.py	2024-01-11 15:30:10.842722344 +0900
++++ ./site-packages/hyperkitty/models/thread.py	2024-01-18 10:11:36.959164145 +0900
+@@ -29,6 +29,7 @@
+ from hyperkitty.lib.analysis import compute_thread_order_and_depth
+ from .common import ModelCachedValue, VotesCachedValue
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -40,15 +41,17 @@
+     """
+     mailinglist = models.ForeignKey(
+         # Delete the model if the MailingList is deleted.
+-        "MailingList", related_name="threads", on_delete=models.CASCADE)
+-    thread_id = models.CharField(max_length=255, db_index=True)
+-    date_active = models.DateTimeField(db_index=True, default=now)
++        "MailingList", related_name="threads", on_delete=models.CASCADE, verbose_name=_("Mailinglist"))
++    thread_id = models.CharField(max_length=255, db_index=True, verbose_name=_("Thread id"))
++    date_active = models.DateTimeField(db_index=True, default=now, verbose_name=_("Date active"))
+     category = models.ForeignKey(
+         "ThreadCategory", related_name="threads", null=True,
+-        on_delete=models.SET_NULL)
++        on_delete=models.SET_NULL,
++        verbose_name=_("Category"))
+     starting_email = models.OneToOneField(
+         "Email", related_name="started_thread", null=True,
+-        on_delete=models.SET_NULL)
++        on_delete=models.SET_NULL,
++        verbose_name=_("Starting email"))
+ 
+     def __init__(self, *args, **kwargs):
+         super(Thread, self).__init__(*args, **kwargs)
+@@ -62,6 +65,8 @@
+ 
+     class Meta:
+         unique_together = ("mailinglist", "thread_id")
++        verbose_name = _("Thread")
++        verbose_name_plural = _("Threads")
+ 
+     def __str__(self):
+         return self.subject
+@@ -243,12 +248,17 @@
+ 
+ class LastView(models.Model):
+     thread = models.ForeignKey(
+-        "Thread", related_name="lastviews", on_delete=models.CASCADE)
++        "Thread", related_name="lastviews", on_delete=models.CASCADE, verbose_name=_("Thread"))
+     user = models.ForeignKey(
+         settings.AUTH_USER_MODEL,
+-        related_name="lastviews", on_delete=models.CASCADE)
++        related_name="lastviews", on_delete=models.CASCADE,
++        verbose_name=_("User"))
+     view_date = models.DateTimeField(auto_now=True)
+ 
++    class Meta:
++        verbose_name = _("Last view")
++        verbose_name_plural = _("Last views")
++
+     def __str__(self):
+         """Unicode representation"""
+         return "Last view of %s by %s was %s" % (
+diff -ruN ./site-packages.ORG/hyperkitty/models/vote.py ./site-packages/hyperkitty/models/vote.py
+--- ./site-packages.ORG/hyperkitty/models/vote.py	2024-01-11 15:30:10.842722344 +0900
++++ ./site-packages/hyperkitty/models/vote.py	2024-01-18 10:11:43.566425154 +0900
+@@ -23,19 +23,22 @@
+ from django.conf import settings
+ from django.db import models
+ 
++from django.utils.translation import gettext_lazy as _
+ 
+ class Vote(models.Model):
+     """
+     A User's vote on a message
+     """
+     email = models.ForeignKey(
+-        "Email", related_name="votes", on_delete=models.CASCADE)
++        "Email", related_name="votes", on_delete=models.CASCADE, verbose_name=_("Email"))
+     user = models.ForeignKey(settings.AUTH_USER_MODEL,
+-                             related_name="votes", on_delete=models.CASCADE)
+-    value = models.SmallIntegerField(db_index=True)
++                             related_name="votes", on_delete=models.CASCADE, verbose_name=_("User"))
++    value = models.SmallIntegerField(db_index=True, verbose_name=_("Value"))
+ 
+     class Meta:
+         unique_together = ("email", "user")
++        verbose_name = _("Vote")
++        verbose_name_plural =_("Votes")
+ 
+     def on_post_save(self):
+         self.email.on_vote_added(self)
+diff -ruN ./site-packages.ORG/hyperkitty/templates/hyperkitty/message_new.html ./site-packages/hyperkitty/templates/hyperkitty/message_new.html
+--- ./site-packages.ORG/hyperkitty/templates/hyperkitty/message_new.html	2024-01-11 15:30:10.831721910 +0900
++++ ./site-packages/hyperkitty/templates/hyperkitty/message_new.html	2024-01-18 09:59:31.473553214 +0900
+@@ -36,7 +36,7 @@
+                 {% if field != post_form.sender %}
+                 <div class="form-group {% if field.errors %}has-error{% endif %}">
+                     <label class="control-label" for="{{ field.id_for_label }}">
+-                        {{ field.label }}
++                        {% trans field.label %}
+                     </label>
+                     {{ field|add_form_control }}
+                     <span class="help-block">{{ field.errors }}</span>
+diff -ruN ./site-packages.ORG/hyperkitty/templates/hyperkitty/threads/right_col.html ./site-packages/hyperkitty/templates/hyperkitty/threads/right_col.html
+--- ./site-packages.ORG/hyperkitty/templates/hyperkitty/threads/right_col.html	2024-01-11 15:30:10.830721871 +0900
++++ ./site-packages/hyperkitty/templates/hyperkitty/threads/right_col.html	2024-01-18 09:59:31.474553254 +0900
+@@ -31,7 +31,7 @@
+     <p class="postorius">
+       <a class="btn btn-outline-primary btn-sm" href="{% url 'list_summary' mlist.list_id %}">
+         <i class="fa fa-fw fa-inbox"></i>
+-        Manage subscription</a>
++	{% trans "Manage subscription" %}</a>
+     </p>
+     {% endif %}
+ 
+diff -ruN ./site-packages.ORG/hyperkitty/views/message.py ./site-packages/hyperkitty/views/message.py
+--- ./site-packages.ORG/hyperkitty/views/message.py	2024-01-11 15:30:10.832721950 +0900
++++ ./site-packages/hyperkitty/views/message.py	2024-01-18 09:59:31.475553293 +0900
+@@ -202,7 +202,7 @@
+               "message_html": html}
+     if subscribed_now:
+         result['result'] += (
+-            _("\n  You have been subscribed to {} list.").format(mlist_fqdn))
++            _("\n  You have been subscribed to %s list.") % mlist_fqdn)
+     return HttpResponse(json.dumps(result),
+                         content_type="application/javascript")
+ 
+@@ -232,7 +232,7 @@
+                     str(e), content_type="text/plain", status=403)
+             else:
+                 messages.success(
+-                    request, "The message has been sent successfully.")
++                    request, _("The message has been sent successfully."))
+                 redirect_url = reverse('hk_archives_with_month', kwargs={
+                     "mlist_fqdn": mlist_fqdn,
+                     'year': today.year, 'month': today.month})
+diff -ruN ./site-packages.ORG/hyperkitty/views/mlist.py ./site-packages/hyperkitty/views/mlist.py
+--- ./site-packages.ORG/hyperkitty/views/mlist.py	2024-01-11 15:30:10.832721950 +0900
++++ ./site-packages/hyperkitty/views/mlist.py	2024-01-18 09:59:31.475553293 +0900
+@@ -418,7 +418,7 @@
+                 mlist.delete()
+                 messages.success(
+                     request,
+-                    _('Successfully deleted {}'.format(mlist.name)))
++                    _('Successfully deleted %s') % mlist.name)
+                 return redirect('/')
+             except (IntegrityError, ObjectDoesNotExist) as e:
+                 messages.error(request, str(e))
+diff -ruN ./site-packages.ORG/mailman/app/subscriptions.py ./site-packages/mailman/app/subscriptions.py
+--- ./site-packages.ORG/mailman/app/subscriptions.py	2024-01-11 15:30:10.756718951 +0900
++++ ./site-packages/mailman/app/subscriptions.py	2024-01-23 11:13:16.557325472 +0900
+@@ -324,9 +324,10 @@
+             self.mlist.fqdn_listname, self.address.email))
+         # Possibly send a notification to the list moderators.
+         if self.mlist.admin_immed_notify:
+-            subject = _(
+-                'New subscription request to ${self.mlist.display_name} '
+-                'from ${self.address.email}')
++            with _.using(self.mlist.preferred_language.code):
++                subject = _(
++                    'New subscription request to ${self.mlist.display_name} '
++                    'from ${self.address.email}')
+             username =\
+                 f'{self.subscriber.display_name} <{self.address.email}>'\
+                 if self.subscriber.display_name else self.address.email
+@@ -493,9 +494,10 @@
+         log.info('{}: held unsubscription request from {}'.format(
+             self.mlist.fqdn_listname, self.address.email))
+         if self.mlist.admin_immed_notify:
+-            subject = _(
+-                'New unsubscription request to ${self.mlist.display_name} '
+-                'from ${self.address.email}')
++            with _.using(self.mlist.preferred_language.code):
++                subject = _(
++                    'New unsubscription request to ${self.mlist.display_name} '
++                    'from ${self.address.email}')
+             username =\
+                 f'{self.subscriber.display_name} <{self.address.email}>'\
+                 if self.subscriber.display_name else self.address.email
+diff -ruN ./site-packages.ORG/mailman/messages/ja/LC_MESSAGES/mailman.po ./site-packages/mailman/messages/ja/LC_MESSAGES/mailman.po
+--- ./site-packages.ORG/mailman/messages/ja/LC_MESSAGES/mailman.po	2024-01-11 15:30:10.783720016 +0900
++++ ./site-packages/mailman/messages/ja/LC_MESSAGES/mailman.po	2024-01-18 10:04:34.366490180 +0900
+@@ -31,7 +31,7 @@
+ msgstr "バウンスの詳細は不明"
+ 
+ #: src/mailman/app/bounces.py:230
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "${mlist.display_name} mailing list probe message"
+ msgstr "メーリングリスト ${mlist.display_name} のプローブメッセージ"
+ 
+@@ -40,7 +40,7 @@
+ msgstr "キャッチされないバウンス通知"
+ 
+ #: src/mailman/app/membership.py:147
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "${mlist.display_name} unsubscription notification"
+ msgstr "${mlist.display_name} 購読解除通知"
+ 
+@@ -54,7 +54,7 @@
+ "以前に別のメーリングリストで処理されました。\n"
+ 
+ #: src/mailman/app/moderator.py:132
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "Posting of your message titled \"${subject}\""
+ msgstr "\"${subject}\" というタイトルの投稿"
+ 
+@@ -68,7 +68,7 @@
+ msgstr "承認待ちのメッセージの転送"
+ 
+ #: src/mailman/app/moderator.py:233
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "New unsubscription request from ${mlist.display_name} by ${email}"
+ msgstr "${email}で ${mlist.display_name}からの新しい購読解除のリクエスト"
+ 
+@@ -81,7 +81,7 @@
+ msgstr "元のメッセージ"
+ 
+ #: src/mailman/app/moderator.py:310
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "Request to mailing list \"${display_name}\" rejected"
+ msgstr "メーリングリスト\"${display_name}\" のリクエストが拒否されました"
+ 
+@@ -90,32 +90,32 @@
+ msgstr " （ダイジェストモード）"
+ 
+ #: src/mailman/app/notifications.py:98
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "Welcome to the \"${mlist.display_name}\" mailing list${digmode}"
+ msgstr "メーリングリスト \"${mlist.display_name}\" へようこそ${digmode}"
+ 
+ #: src/mailman/app/notifications.py:130
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "You have been unsubscribed from the ${mlist.display_name} mailing list"
+ msgstr "メーリングリスト ${mlist.display_name} の購読を解除しました"
+ 
+ #: src/mailman/app/notifications.py:148
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "${mlist.display_name} subscription notification"
+ msgstr "${mlist.display_name} 購読通知"
+ 
+ #: src/mailman/app/notifications.py:173
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "${member}'s subscription disabled on ${mlist.display_name}"
+ msgstr "${member}の ${mlist.display_name} の購読が無効になっています"
+ 
+ #: src/mailman/app/notifications.py:201
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "${member}'s bounce score incremented on ${mlist.display_name}"
+ msgstr "${mlist.display_name}で${member}のバウンススコアが増加しました"
+ 
+ #: src/mailman/app/notifications.py:227
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "${member} unsubscribed from ${mlist.display_name} mailing list due to bounces"
+ msgstr "バウンスが原因で${member}がメーリングリスト ${mlist."
+ "display_name}から購読を解除されました"
+@@ -126,29 +126,29 @@
+ msgstr "メーリングリスト${mlist.display_name}に対して購読が無効になりました"
+ 
+ #: src/mailman/app/subscriptions.py:334
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "New subscription request to ${self.mlist.display_name} from ${self.address.email}"
+ msgstr "${self.address.email}から${self.mlist.display_name}への新しい購読リクエスト"
+ 
+ #: src/mailman/app/subscriptions.py:502
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "New unsubscription request to ${self.mlist.display_name} from ${self.address.email}"
+ msgstr "${self.address.email}から${self.mlist."
+ "display_name}への新しい購読解除リクエスト"
+ 
+ #: src/mailman/app/subscriptions.py:633
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "You have been invited to join the ${event.mlist.fqdn_listname} mailing list."
+ msgstr "メーリングリスト ${event.mlist.fqdn_listname} への参加を招待されました。"
+ 
+ #: src/mailman/app/subscriptions.py:636
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "Your confirmation is needed to leave the ${event.mlist.fqdn_listname} mailing list."
+ msgstr "メーリングリスト ${event.mlist.fqdn_listname} "
+ "から脱退するには確認が必要です。"
+ 
+ #: src/mailman/app/subscriptions.py:640
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid "Your confirmation is needed to join the ${event.mlist.fqdn_listname} mailing list."
+ msgstr "メーリングリスト ${event.mlist.fqdn_listname} に参加するには確認が必要です。"
+ 
+@@ -186,7 +186,7 @@
+ "マスターロックを取得できませんでした。"
+ 
+ #: src/mailman/bin/master.py:163
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid ""
+ "The master lock could not be acquired.  It appears as though there is a stale\n"
+ "master lock.  Try re-running ${program} with the --force flag."
+@@ -196,7 +196,7 @@
+ "もう一度 --force をつけて${program}を実行してください。"
+ 
+ #: src/mailman/bin/master.py:169
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid ""
+ "The master lock could not be acquired, because it appears as if some process\n"
+ "on some other host may have acquired it.  We can't test for stale locks across\n"
+@@ -218,7 +218,7 @@
+ "終了します。"
+ 
+ #: src/mailman/bin/master.py:182
+-#, python-brace-format
++#: fuzzy, python-brace-format
+ msgid ""
+ "For unknown reasons, the master lock could not be acquired.\n"
+ "\n"
+@@ -785,7 +785,6 @@
+ msgstr "Mailman runnerの再起動"
+ 
+ #: src/mailman/commands/cli_delmembers.py:48
+-#, python-brace-format
+ msgid "Member not subscribed (skipping): ${email}"
+ msgstr "メンバーが購読していません(スキップ): ${email}"
+ 
+@@ -864,7 +863,6 @@
+ msgstr "    リストの admin_notify_mchanges の設定を上書きします。"
+ 
+ #: src/mailman/commands/cli_delmembers.py:123
+-#, python-brace-format
+ msgid "No such list: ${_list}"
+ msgstr "そのようなメーリングリストはありません:${_list}"
+ 
+@@ -928,7 +926,6 @@
+ msgstr "--sendフラグと--periodicフラグは併用できません"
+ 
+ #: src/mailman/commands/cli_digests.py:92 src/mailman/commands/cli_notify.py:69
+-#, python-brace-format
+ msgid "No such list found: ${spec}"
+ msgstr "そのようなメーリングリストは見つかりませんでした:${spec}"
+ 
+@@ -1027,7 +1024,6 @@
+ "1の文字セットになります。"
+ 
+ #: src/mailman/commands/cli_import.py:82
+-#, python-brace-format
+ msgid "Not a Mailman 2.1 configuration file: ${pickle_file}"
+ msgstr "これはMailman 2.1の設定ファイルではありません: ${pickle_file}"
+ 
+@@ -1088,7 +1084,6 @@
+ "    -mオプションを使用して 複数の追加が許可されています。"
+ 
+ #: src/mailman/commands/cli_inject.py:79
+-#, python-brace-format
+ msgid "No such queue: ${queue}"
+ msgstr "そのようなキューは存在しません: ${queue}"
+ 
+@@ -1128,12 +1123,11 @@
+ msgid "No matching mailing lists found"
+ msgstr "該当するメーリングリストが見つかりませんでした"
+ 
+-#: src/mailman/commands/cli_lists.py:95
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:91
+ msgid "${count} matching mailing lists found:"
+ msgstr "${count} 件の該当するメーリングリストが見つかりました:"
+ 
+-#: src/mailman/commands/cli_lists.py:126
++#: src/mailman/commands/cli_lists.py:122
+ msgid ""
+ "    Create a mailing list.\n"
+ "\n"
+@@ -1197,38 +1191,31 @@
+ "    -Dオプションを使用すると、メーリングリストのドメインを登録しないようにし"
+ "ます。"
+ 
+-#: src/mailman/commands/cli_lists.py:170
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:166
+ msgid "Invalid language code: ${language_code}"
+ msgstr "無効な言語コードです: ${language_code}"
+ 
+-#: src/mailman/commands/cli_lists.py:186
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:182
+ msgid "Illegal owner addresses: ${invalid}"
+ msgstr "不正なオーナーアドレスです: ${invalid}"
+ 
+-#: src/mailman/commands/cli_lists.py:190
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:186
+ msgid "Illegal list name: ${fqdn_listname}"
+ msgstr "不正なメーリングリスト名です: ${fqdn_listname}"
+ 
+-#: src/mailman/commands/cli_lists.py:192
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:188
+ msgid "List already exists: ${fqdn_listname}"
+ msgstr "メーリングリストは既に存在します: ${fqdn_listname}"
+ 
+-#: src/mailman/commands/cli_lists.py:194
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:190
+ msgid "Undefined domain: ${domain}"
+ msgstr "未定義のドメインです: ${domain}"
+ 
+-#: src/mailman/commands/cli_lists.py:202
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:198
+ msgid "Created mailing list: ${mlist.fqdn_listname}"
+ msgstr "メーリングリストが作成されました: ${mlist.fqdn_listname}"
+ 
+-#: src/mailman/commands/cli_lists.py:217
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:213
+ msgid "Your new mailing list: ${fqdn_listname}"
+ msgstr "新しいメーリングリスト: ${fqdn_listname}"
+ 
+@@ -1240,22 +1227,19 @@
+ msgid "Suppress status messages"
+ msgstr "ステータスメッセージの非表示"
+ 
+-#: src/mailman/commands/cli_lists.py:241
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:237
+ msgid "No such list matching spec: ${listspec}"
+ msgstr "指定された仕様に一致するリストが見つかりません: ${listspec}"
+ 
+-#: src/mailman/commands/cli_lists.py:246
+-#, python-brace-format
++#: src/mailman/commands/cli_lists.py:242
+ msgid "Removed list: ${listspec}"
+ msgstr "リストが削除されました: ${listspec}"
+ 
+-#: src/mailman/commands/cli_members.py:90
+-#, python-brace-format
++#: src/mailman/commands/cli_members.py:84
+ msgid "${mlist.list_id} has no members"
+ msgstr "${mlist.list_id}にはメンバーがいません"
+ 
+-#: src/mailman/commands/cli_members.py:112
++#: src/mailman/commands/cli_members.py:108
+ msgid ""
+ "    Display a mailing list's members.\n"
+ "    Filtering along various criteria can be done when displaying.\n"
+@@ -1463,7 +1447,6 @@
+ msgstr "[----- pickle 開始 -----]"
+ 
+ #: src/mailman/commands/cli_qfile.py:70
+-#, python-brace-format
+ msgid "<----- start object ${count} ----->"
+ msgstr "<----- オブジェクト ${count} の開始 ----->"
+ 
+@@ -1472,7 +1455,6 @@
+ msgstr "[----- pickle 終了 -----]"
+ 
+ #: src/mailman/commands/cli_qfile.py:77
+-#, python-brace-format
+ msgid "Number of objects found (see the variable 'm'): ${count}"
+ msgstr "見つかったオブジェクトの数（変数 'm' を参照）: ${count}"
+ 
+@@ -1485,27 +1467,22 @@
+ msgstr "GNU Mailmanは実行されていません"
+ 
+ #: src/mailman/commands/cli_status.py:41
+-#, python-brace-format
+ msgid "GNU Mailman is running (master pid: ${pid})"
+ msgstr "GNU Mailmanは実行中です（マスタープロセスID: ${pid}）"
+ 
+ #: src/mailman/commands/cli_status.py:44
+-#, python-brace-format
+ msgid "GNU Mailman is stopped (stale pid: ${pid})"
+ msgstr "GNU Mailmanは停止しています（古いプロセスID: ${pid}）"
+ 
+ #: src/mailman/commands/cli_status.py:50
+-#, python-brace-format
+ msgid "GNU Mailman is in an unexpected state (${hostname} != ${fqdn_name})"
+ msgstr "GNU Mailmanは予期しない状態にあります（${hostname} != ${fqdn_name}）"
+ 
+ #: src/mailman/commands/cli_syncmembers.py:136
+-#, python-format
+ msgid "[ADD] %s"
+ msgstr "[追加] %s"
+ 
+ #: src/mailman/commands/cli_syncmembers.py:146
+-#, python-format
+ msgid "[DEL] %s"
+ msgstr "[削除]%s"
+ 
+@@ -1574,7 +1551,6 @@
+ "    破棄します。"
+ 
+ #: src/mailman/commands/cli_unshunt.py:50
+-#, python-brace-format
+ msgid ""
+ "Cannot unshunt message ${filebase}, skipping:\n"
+ "${error}"
+@@ -1816,8 +1792,7 @@
+ msgid "Regular expression requires --run"
+ msgstr "正規表現を使用するには、--runが必要です"
+ 
+-#: src/mailman/commands/cli_withlist.py:301
+-#, python-brace-format
++#: src/mailman/commands/cli_withlist.py:300
+ msgid "The variable 'm' is the ${listspec} mailing list"
+ msgstr "変数 'm' は ${listspec} メーリングリストです"
+ 
+@@ -1842,7 +1817,6 @@
+ msgstr "無効な承認: パスワード"
+ 
+ #: src/mailman/commands/eml_confirm.py:111
+-#, python-brace-format
+ msgid "Message ${message}"
+ msgstr "メッセージ ${message}"
+ 
+@@ -1867,7 +1841,6 @@
+ msgstr "n/a"
+ 
+ #: src/mailman/commands/eml_help.py:59
+-#, python-brace-format
+ msgid "${self.name}: no such command: ${command_name}"
+ msgstr "${self.name}: のようなコマンドは存在しません: ${command_name}"
+ 
+@@ -1898,24 +1871,20 @@
+ msgid "Join this mailing list."
+ msgstr "このメーリングリストに参加します。"
+ 
+-#: src/mailman/commands/eml_membership.py:102
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:97
+ msgid "${self.name}: No valid address found to subscribe"
+ msgstr "${self.name}: 有効なメールアドレスが見つかりませんでした"
+ 
+-#: src/mailman/commands/eml_membership.py:130
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:125
+ msgid "${person} has a pending subscription for ${listname}"
+ msgstr "\"${person}\" さんは \"${listname}\" への保留中の購読があります"
+ 
+-#: src/mailman/commands/eml_membership.py:133
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:128
+ msgid "Confirmation email sent to ${person}"
+ msgstr "確認メールが ${person} さんに送信されました"
+ 
+-#: src/mailman/commands/eml_membership.py:150
+-#: src/mailman/commands/eml_membership.py:160
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:145
++#: src/mailman/commands/eml_membership.py:155
+ msgid "bad argument: ${argument}"
+ msgstr "不正な引数: ${argument}"
+ 
+@@ -1937,33 +1906,27 @@
+ msgid "Leave this mailing list."
+ msgstr "このメーリングリストを退会します。"
+ 
+-#: src/mailman/commands/eml_membership.py:194
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:188
+ msgid "${self.name}: No valid email address found to unsubscribe"
+ msgstr "${self.name}: 有効なメールアドレスが見つからないため、購読解除できません"
+ 
+-#: src/mailman/commands/eml_membership.py:200
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:194
+ msgid "No registered user for email address: ${email}"
+ msgstr "メールアドレス ${email} に対する登録ユーザーが存在しません"
+ 
+-#: src/mailman/commands/eml_membership.py:207
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:201
+ msgid "Invalid or unverified email address: ${email}"
+ msgstr "無効または未確認のメールアドレス: ${email}"
+ 
+-#: src/mailman/commands/eml_membership.py:226
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:220
+ msgid "${self.name}: ${email} is not a member of ${mlist.fqdn_listname}"
+ msgstr "${self.name}: ${email} は ${mlist.fqdn_listname} のメンバーではありません"
+ 
+-#: src/mailman/commands/eml_membership.py:237
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:231
+ msgid "${person} left ${mlist.fqdn_listname}"
+ msgstr "${person} が ${mlist.fqdn_listname} を退会しました"
+ 
+-#: src/mailman/commands/eml_membership.py:239
+-#, python-brace-format
++#: src/mailman/commands/eml_membership.py:233
+ msgid "Confirmation email sent to ${person} to leave ${mlist.fqdn_listname}"
+ msgstr "${mlist.fqdn_listname} を退会するための確認メールが ${person} "
+ "さんに送信されました"
+@@ -2017,7 +1980,6 @@
+ msgstr "投稿の確認を送信します。"
+ 
+ #: src/mailman/handlers/acknowledge.py:75
+-#, python-brace-format
+ msgid "${display_name} post acknowledgment"
+ msgstr "${display_name} 投稿の確認"
+ 
+@@ -2050,7 +2012,6 @@
+ msgstr "メッセージにヘッダーとフッターを付与します。"
+ 
+ #: src/mailman/handlers/dmarc.py:127
+-#, python-brace-format
+ msgid "${realname} via ${mlist.display_name}"
+ msgstr "${mlist.display_name} 経由の ${realname}"
+ 
+@@ -2067,7 +2028,6 @@
+ msgstr "メッセージの通常の受信者を計算します。"
+ 
+ #: src/mailman/handlers/member_recipients.py:77
+-#, python-brace-format
+ msgid ""
+ "Your urgent message to the ${mlist.display_name} mailing list was not\n"
+ "authorized for delivery.  The original message as received by Mailman is\n"
+@@ -2078,7 +2038,6 @@
+ "添付されています。\n"
+ 
+ #: src/mailman/handlers/mime_delete.py:62
+-#, python-brace-format
+ msgid ""
+ "The attached message matched the ${mlist.display_name} mailing list's content\n"
+ "filtering rules and was prevented from being forwarded on to the list\n"
+@@ -2139,7 +2098,6 @@
+ 
+ #: src/mailman/handlers/mime_delete.py:239 src/mailman/handlers/mime_delete.py:246
+ #: src/mailman/handlers/mime_delete.py:255 src/mailman/handlers/mime_delete.py:261
+-#, python-brace-format
+ msgid "Name: ${fname}\n"
+ msgstr "名前: ${fname}\n"
+ 
+@@ -2155,8 +2113,7 @@
+ msgid "Send automatic responses."
+ msgstr "自動応答を送信します。"
+ 
+-#: src/mailman/handlers/replybot.py:101
+-#, python-brace-format
++#: src/mailman/handlers/replybot.py:97
+ msgid "Auto-response for your message to the \"${display_name}\" mailing list"
+ msgstr "\"${display_name}\" メーリングリストへのメッセージに対する自動応答"
+ 
+@@ -2397,22 +2354,18 @@
+ msgstr "‐ 元のメッセージの詳細:"
+ 
+ #: src/mailman/runners/command.py:191
+-#, python-brace-format
+ msgid "    From: ${from_}"
+ msgstr "    送信元: ${from_}"
+ 
+ #: src/mailman/runners/command.py:192
+-#, python-brace-format
+ msgid "    Subject: ${subject}"
+ msgstr "    件名: ${subject}"
+ 
+ #: src/mailman/runners/command.py:193
+-#, python-brace-format
+ msgid "    Date: ${date}"
+ msgstr "    日付: ${date}"
+ 
+ #: src/mailman/runners/command.py:194
+-#, python-brace-format
+ msgid "    Message-ID: ${message_id}"
+ msgstr "    Message-ID: ${message_id}"
+ 
+@@ -2425,7 +2378,6 @@
+ "‐ 結果:"
+ 
+ #: src/mailman/runners/command.py:209
+-#, python-brace-format
+ msgid "No such command: ${command_name}"
+ msgstr "そのようなコマンドは存在しません: ${command_name}"
+ 
+@@ -2458,7 +2410,6 @@
+ msgstr "あなたの電子メールコマンドの結果"
+ 
+ #: src/mailman/runners/digest.py:55
+-#, python-brace-format
+ msgid "${mlist.display_name} Digest, Vol ${volume}, Issue ${digest_number}"
+ msgstr "${mlist.display_name} ダイジェスト、Vol ${volume}、Issue ${digest_number}"
+ 
+@@ -2470,8 +2421,7 @@
+ msgid "Digest Header"
+ msgstr "ダイジェストヘッダー"
+ 
+-#: src/mailman/runners/digest.py:173
+-#, python-brace-format
++#: src/mailman/runners/digest.py:172
+ msgid "Today's Topics (${count} messages)"
+ msgstr "今日のトピック（${count} 件のメッセージ）"
+ 
+@@ -2483,8 +2433,7 @@
+ msgid "End of "
+ msgstr "終了 "
+ 
+-#: src/mailman/styles/base.py:59
+-#, python-brace-format
++#: src/mailman/styles/base.py:55
+ msgid "[${mlist.display_name}] "
+ msgstr "[${mlist.display_name} ] "
+ 
+@@ -2501,12 +2450,10 @@
+ msgstr "非公開アーカイブを備えたディスカッションメーリングリストスタイル。"
+ 
+ #: src/mailman/utilities/options.py:47
+-#, python-brace-format
+ msgid "slice and range must be integers: ${value}"
+ msgstr "sliceとrangeは整数でなければなりません: ${value}"
+ 
+ #: src/mailman/utilities/options.py:50
+-#, python-brace-format
+ msgid "Bad runner spec: ${value}"
+ msgstr "不正な仕様: ${value}"
+ 
+@@ -2515,7 +2462,6 @@
+ msgstr "利用不可"
+ 
+ #: src/mailman/utilities/scrubber.py:50
+-#, python-brace-format
+ msgid ""
+ "A message part incompatible with plain text digests has been removed ...\n"
+ "Name: ${filename}\n"
+diff -ruN ./site-packages.ORG/mailman/templates/ja/domain:admin:notice:new-list.txt ./site-packages/mailman/templates/ja/domain:admin:notice:new-list.txt
+--- ./site-packages.ORG/mailman/templates/ja/domain:admin:notice:new-list.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/domain:admin:notice:new-list.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,11 @@
++メーリングリスト '$listname' が作成されました。
++
++メーリングリストのメンバーは、メールを使って参加や退会などの操作を行うことができます。
++使用方法について詳しく知りたい場合は、件名または本文に'help'という単語を入力し
++以下のメールアドレスへメールを送ってください。
++
++    $request_email
++
++その他ご質問については以下のメールアドレスへお問い合わせください。
++
++    $site_email
+diff -ruN ./site-packages.ORG/mailman/templates/ja/help.txt ./site-packages/mailman/templates/ja/help.txt
+--- ./site-packages.ORG/mailman/templates/ja/help.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/help.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,24 @@
++メーリングリスト $listname のヘルプ
++
++$domain にあるGNU Mailman list managerバージョン$versionで利用可能な、メールコマンドの使い方について解説します。
++
++メールコマンドは、件名または本文に記載します。
++指定したコマンドによって、メーリングリストに関する情報を取得したり、購読に関する設定を変更することが可能です。
++
++コマンドを含むメールは、以下のアドレス宛てに送ります。
++
++${listname}-request@${domain}
++
++"<>"で囲われた項目は、必須の項目です。
++"[]"で囲われた項目は、オプションの項目です。
++
++※実際にコマンドを送信するときは括弧は省いてください。
++
++
++以下のコマンドが利用可能です。
++
++    $commands
++
++不明点などございましたが、以下の宛先にお問い合わせください。
++
++    $administrator
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:action:post.txt ./site-packages/mailman/templates/ja/list:admin:action:post.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:action:post.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:action:post.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,11 @@
++次の投稿が承認待ちとなっています。
++
++    メーリングリスト: $listname
++    投稿者          : $sender_email
++    件名            : $subject
++
++保留となっている理由は以下の通りです。
++
++$reasons
++
++WEBページにアクセスしてリクエストを承認または拒否してください。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:action:subscribe.txt ./site-packages/mailman/templates/ja/list:admin:action:subscribe.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:action:subscribe.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:action:subscribe.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,5 @@
++メーリングリストへの参加リクエストが届きました。
++以下を確認してWEBから承認処理をしてください。
++
++    参加希望者: $member
++    対象メーリングリスト: $listname
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:action:unsubscribe.txt ./site-packages/mailman/templates/ja/list:admin:action:unsubscribe.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:action:unsubscribe.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:action:unsubscribe.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,5 @@
++メーリングリストへの退会リクエストが届きました。
++以下を確認してWEBから承認処理をしてください。
++
++    退会希望者: $member
++    対象メーリングリスト: $listname
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:notice:disable.txt ./site-packages/mailman/templates/ja/list:admin:notice:disable.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:notice:disable.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:notice:disable.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,5 @@
++$member のバウンススコアが
++メーリングリスト \"$listname\" のしきい値を超えているため
++アカウントが無効になっています。 
++
++利用可能な場合はDSNをトリガーします。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:notice:increment.txt ./site-packages/mailman/templates/ja/list:admin:notice:increment.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:notice:increment.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:notice:increment.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,3 @@
++$listnameでの$memberのバウンススコアが増加しました。
++
++利用可能な場合はトリガーDSNが添付されます。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:notice:pending.txt ./site-packages/mailman/templates/ja/list:admin:notice:pending.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:notice:pending.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:notice:pending.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,4 @@
++$listnameには、$count 件、承認リクエストが溜まっています。
++
++$data
++早めに承認をお願いします。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:notice:removal.txt ./site-packages/mailman/templates/ja/list:admin:notice:removal.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:notice:removal.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:notice:removal.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1 @@
++$member はバウンスが多すぎるため、 $listname から退会しました。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:notice:subscribe.txt ./site-packages/mailman/templates/ja/list:admin:notice:subscribe.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:notice:subscribe.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:notice:subscribe.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1 @@
++$member は $display_name に追加されました。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:admin:notice:unrecognized.txt ./site-packages/mailman/templates/ja/list:admin:notice:unrecognized.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:admin:notice:unrecognized.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:admin:notice:unrecognized.txt	2024-01-18 09:59:31.476553333 +0900
+@@ -0,0 +1,5 @@
++添付されたメッセージはバウンスとして受信されましたが
++バウンス形式が認識されなかったか、メンバーアドレスを抽出できませんでした。
++
++このメーリングリストは、認識されないすべてのバウンスメッセージを
++リスト管理者に送信するように構成されています。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:member:digest:masthead.txt ./site-packages/mailman/templates/ja/list:member:digest:masthead.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:member:digest:masthead.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:member:digest:masthead.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,13 @@
++$display_name メーリングリストの配信を、以下に送信します。
++	$listname
++
++メールを使って、メーリングリストへの参加/退会を行うには、
++件名または本文に'help'を入力し、以下のメールアドレスにメールを送ってください。
++
++	$request_email
++
++メーリングリストの管理者へは、以下のメールアドレスから連絡することができます。
++	$owner_email
++
++返信するときは、以下の内容よりも具体的な件名にしてください。
++"Re: $display_name のダイジェスト配信..."
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:member:generic:footer.txt ./site-packages/mailman/templates/ja/list:member:generic:footer.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:member:generic:footer.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:member:generic:footer.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,3 @@
++_______________________________________________
++$display_name メーリングリスト -- $listname
++退会する場合は、 ${short_listname}-leave@${domain} あてにメールを送信してください。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:action:invite.txt ./site-packages/mailman/templates/ja/list:user:action:invite.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:action:invite.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:action:invite.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,15 @@
++"$user_email"は、メーリングリスト $short_listname のオーナーによって
++$domain の メーリングリスト  $short_listname に招待されました。
++
++招待を受け入れるには、このメールをそのまま返信してください。
++招待を受け入れると、メーリングリストへの参加が完了します。
++
++以下の内容を本文に記載し、 $request_email: あてにメールを送信する方法でも招待を受け入れることができます。
++--
++    confirm $token
++--
++
++招待を辞退したい場合は、このメールを無視してください。
++このメールに心当たりのない方や、ご不明な点がございましたら、お手数ですが以下のメールアドレスにお問い合わせください。
++    $owner_email
++
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:action:subscribe.txt ./site-packages/mailman/templates/ja/list:user:action:subscribe.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:action:subscribe.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:action:subscribe.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,16 @@
++このメールは、 $domain のMailmanサーバーより自動的に送信されています。
++
++以下のメールアドレスでメーリングリストの参加を受け付けました。
++    $user_email
++
++このメールに返信することで、メーリングリストへの参加が完了します。
++
++以下の内容を本文に記載し、 $request_email: あてにメールを送信する方法でも参加手続きを完了することができます。
++--
++    confirm $token
++--
++
++このメールアドレスでメーリングリストに参加しない場合は、このメールを無視してください。
++このメールに心当たりのない方や、ご不明な点がございましたら、お手数ですが以下のメールアドレスにお問い合わせください。
++    $owner_email
++
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:action:unsubscribe.txt ./site-packages/mailman/templates/ja/list:user:action:unsubscribe.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:action:unsubscribe.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:action:unsubscribe.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,16 @@
++このメールは、 $domain のMailmanサーバーより自動的に送信されています。
++
++以下のメールアドレスでメーリングリストの退会を受け付けました。
++    $user_email
++
++このメールに返信することで、メーリングリストからの退会が完了します。
++
++以下の内容を本文に記載し、 $request_email: あてにメールを送信する方法でも参加手続きを完了することができます。
++
++--
++    confirm $token
++--
++
++このメーリングアドレスを退会しない場合は、このメールを無視してください。
++このメールに心当たりのない方や、ご不明な点がございましたら、お手数ですが以下のメールアドレスにお問い合わせください。
++    $owner_email
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:goodbye.txt ./site-packages/mailman/templates/ja/list:user:notice:goodbye.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:goodbye.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:goodbye.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1 @@
++ご利用ありがとうございました。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:hold.txt ./site-packages/mailman/templates/ja/list:user:notice:hold.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:hold.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:hold.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,12 @@
++$listnameへ投稿したメッセージは
++以下の理由により保留となります。
++
++$reasons
++
++投稿したメッセージ:
++
++    $subject
++
++管理者の確認後、メッセージがメーリングリストに投稿されるか
++管理者からの通知が届きます。
++
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:no-more-today.txt ./site-packages/mailman/templates/ja/list:user:notice:no-more-today.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:no-more-today.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:no-more-today.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,9 @@
++メーリングリスト $listname に対して
++あなたのメールアドレス<$sender_email> から
++自動応答のリクエストメッセージを本日 $count件 受け取りました。
++
++メールループの問題を回避するために、これ以上自動応答は行いません。
++明日もう一度やり直してください。
++
++ご不明点等ございましたら、以下のメールアドレスにお問い合わせください。
++$owner_email
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:post.txt ./site-packages/mailman/templates/ja/list:user:notice:post.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:post.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:post.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,5 @@
++メーリングリスト $display_name へ送信した以下のメッセージは
++メーリングリストに投稿されました。
++
++    件名：$subject
++
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:probe.txt ./site-packages/mailman/templates/ja/list:user:notice:probe.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:probe.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:probe.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,14 @@
++これは自動応答メッセージです。
++
++メーリングリスト $listname は、あなたから何度もバウンスメールを受け取りました。
++これは、$sender_emailへのメッセージの配信に問題がある可能性があることを示します。
++
++サンプルを添付しますので
++このメッセージを調べて、メールアドレスに問題がないことを確認してください。
++
++詳細については、メールシステムの管理者に確認することをお勧めします。
++
++メーリングリストに参加し続ける場合は、何もする必要はありません。
++ご不明な点等ございましたら、以下のメールアドレスにお問い合わせください。
++
++    $owner_email
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:refuse.txt ./site-packages/mailman/templates/ja/list:user:notice:refuse.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:refuse.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:refuse.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,11 @@
++メーリングリスト $listname への以下のリクエストがモデレータによって拒否されました。
++
++    $request
++
++拒否された理由は以下の通りです。
++
++"$reason"
++
++ご意見やご質問は、お手数ですが以下のメールアドレスにお問い合わせください。
++
++    $owner_email
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:rejected.txt ./site-packages/mailman/templates/ja/list:user:notice:rejected.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:rejected.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:rejected.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,6 @@
++メーリングリスト $listname への投稿は拒否されました。
++理由は以下の通りです。
++
++$reasons
++
++投稿したメールが添付されていますので確認してください。
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:warning.txt ./site-packages/mailman/templates/ja/list:user:notice:warning.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:warning.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:warning.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,8 @@
++$sender_email へのメール配信に問題ある可能性があることを示す
++バウンスメールを多数受信しました。
++これにより、メーリングリスト $listname への参加が無効になりました。
++
++配信に関する問題については、あなたが利用するメールシステムの管理者へ確認してください。
++
++ご不明な点等ございましたら、以下のメールアドレスにお問い合わせください。
++    $owner_email
+diff -ruN ./site-packages.ORG/mailman/templates/ja/list:user:notice:welcome.txt ./site-packages/mailman/templates/ja/list:user:notice:welcome.txt
+--- ./site-packages.ORG/mailman/templates/ja/list:user:notice:welcome.txt	1970-01-01 09:00:00.000000000 +0900
++++ ./site-packages/mailman/templates/ja/list:user:notice:welcome.txt	2024-01-18 09:59:31.477553372 +0900
+@@ -0,0 +1,14 @@
++メーリングリスト "$display_name" にようこそ!
++
++以下のメールアドレス宛てにメールを送ることで、メーリングリストに投稿することができます。
++
++  $listname
++
++メーリングリストを退会したい場合や、配信オプションを変更したい場合は、以下のメールアドレス宛てにメールを送ってください。
++
++  $request_email
++
++件名または本文に、helpと記載すると、変更方法のフォーマットが記載されたメールが返信されます。
++また変更時には、パスワードが必要です。
++
++パスワードを忘れた場合は、WEBページからパスワードの再設定を行ってください。
+diff -ruN ./site-packages.ORG/postorius/locale/ja/LC_MESSAGES/django.po ./site-packages/postorius/locale/ja/LC_MESSAGES/django.po
+--- ./site-packages.ORG/postorius/locale/ja/LC_MESSAGES/django.po	2024-01-11 15:30:11.124733472 +0900
++++ ./site-packages/postorius/locale/ja/LC_MESSAGES/django.po	2024-01-18 10:04:56.549364403 +0900
+@@ -50,7 +50,7 @@
+ "The domain for your mailing lists. For example when you want lists like "
+ "testing@example.com, enter example.com here."
+ msgstr ""
+-"メーリングリストのドメイン。例えば testing@example.com という名前のリストにし"
++"メーリングリストのドメイン。例えば testing@example.com という名前のメーリングリストにし"
+ "たい場合、example.com と入力してください。"
+ 
+ #: forms/domain_forms.py:57 templates/postorius/domain/index.html:22
+@@ -140,7 +140,7 @@
+ 
+ #: forms/fields.py:149 templates/postorius/lists/summary.html:54
+ msgid "Delivery mode"
+-msgstr "配達モード"
++msgstr "配信方法"
+ 
+ #: forms/fields.py:151
+ msgid ""
+@@ -867,6 +867,14 @@
+ "reject or quarantine or to all messages if DMARC Mitigate unconditionally is "
+ "True."
+ msgstr ""
++"メンバーがメーリングリストに投稿したときのデフォルト動作を指定します。\n"
++"「メーリングリストのデフォルト処理」-- メーリングリストのデフォルト設定で設定されている処理を適用します。\n"
++"「承認待ち」-- メーリングリストのモデレーターによる承認を必要とします。\n"
++"「拒否」 -- 投稿者へバウンス通知を送信し、メッセージを自動的に拒否します。\n"
++"バウンス通知の内容は変更可能です。\n"
++"「破棄」 -- メッセージを破棄します。投稿者に通知はされません。\n"
++"「承諾」 -- 確認なしで投稿を許可します。\n"
++"「デフォルト処理」 -- デフォルトで設定されている処理に従います。"
+ 
+ #: forms/list_forms.py:720
+ msgid "DMARC Mitigate unconditionally"
+@@ -1206,6 +1214,10 @@
+ #: forms/list_forms.py:964
+ msgid "Collapse alternatives"
+ msgstr ""
++"公開: 自由に退会できます。\n"
++"確認: 参加者はメールを使用して退会手続きを行う必要があります。\n"
++"承認: モデレータが手動で承認する必要があります。\n"
++"確認後、承認: 参加者が退会確認手続き後、モデレータが承認する必要があります。"
+ 
+ #: forms/list_forms.py:966
+ msgid ""
+@@ -1454,7 +1466,7 @@
+ msgid ""
+ "Flag indicating that posts to the linked newsgroup should be gated to the "
+ "list"
+-msgstr ""
++msgstr "リンクしたニュースグループへの投稿をリストに転送すべきであることを示すフラグ"
+ 
+ #: forms/list_forms.py:1190
+ msgid "Gateway to news"
+@@ -1464,7 +1476,7 @@
+ msgid ""
+ "Flag indicating that posts to the list should be gated to the linked "
+ "newsgroup."
+-msgstr ""
++msgstr "リンクしたニュースグループへの投稿をリストに転送すべきであることを示すフラグ"
+ 
+ #: forms/list_forms.py:1197
+ msgid "Linked Newsgroup"
+@@ -1490,7 +1502,7 @@
+ msgid ""
+ "Flag indicating whether the list's \"Subject Prefix\" should be included in "
+ "posts gated to usenet."
+-msgstr ""
++msgstr "リストの\"Subject Prefix\"がUsenetに転送される投稿に含まれるべきかどうかを示すフラグ。"
+ 
+ #: forms/list_forms.py:1232
+ msgid "Emails to mass subscribe"
+@@ -1995,7 +2007,7 @@
+ 
+ #: templates/postorius/base.html:78
+ msgid "Lists"
+-msgstr "リスト"
++msgstr "メーリングリスト"
+ 
+ #: templates/postorius/base.html:84 templates/postorius/domain/index.html:5
+ #: templates/postorius/domain/index.html:11
+@@ -2004,7 +2016,7 @@
+ 
+ #: templates/postorius/base.html:90
+ msgid "Bans"
+-msgstr "アクセス禁止"
++msgstr "ブロック"
+ 
+ #: templates/postorius/base.html:96
+ msgid "System Information"
+@@ -2041,7 +2053,7 @@
+ 
+ #: templates/postorius/domain/confirm_delete.html:17
+ msgid "Are you sure you want to permanently delete"
+-msgstr "永続的に削除してもよろしいですか"
++msgstr "完全に削除してもよろしいですか"
+ 
+ #: templates/postorius/domain/confirm_delete.html:21
+ #, python-format
+@@ -2167,7 +2179,7 @@
+ 
+ #: templates/postorius/domain/template_delete.html:11
+ msgid "Delete Template"
+-msgstr "テンプレートの削除"
++msgstr "テンプレートを削除"
+ 
+ #: templates/postorius/domain/template_delete.html:22
+ #, python-format
+@@ -2601,12 +2613,12 @@
+ #: templates/postorius/lists/summary.html:47
+ #: templates/postorius/lists/summary.html:104
+ msgid "Subscription / Unsubscription"
+-msgstr "購読 / 購読解除"
++msgstr "参加 / 退会"
+ 
+ #: templates/postorius/lists/summary.html:52
+ #: templates/postorius/user/subscriptions.html:23
+ msgid "Subscription Address"
+-msgstr "購読アドレス"
++msgstr "参加者アドレス"
+ 
+ #: templates/postorius/lists/summary.html:55
+ #: templates/postorius/user/all.html:37
+@@ -2632,7 +2644,7 @@
+ msgstr "このリストを購読する"
+ 
+ #: templates/postorius/lists/summary.html:88
+-#, python-format
++#: fuzzy, python-format
+ msgid ""
+ "\n"
+ "                To subscribe you can send an email with 'subscribe' in the "
+@@ -2785,11 +2797,11 @@
+ 
+ #: templates/postorius/menu/user_nav.html:9
+ msgid "Address-based preferences"
+-msgstr "アドレスごとの設定"
++msgstr "メールアドレスの基本設定"
+ 
+ #: templates/postorius/menu/user_nav.html:10
+ msgid "List-based preferences"
+-msgstr "リストごとの設定"
++msgstr "メーリングリストの基本設定"
+ 
+ #: templates/postorius/system_information.html:6
+ msgid "System Configuration"
+@@ -3079,8 +3091,8 @@
+ 
+ #: views/list.py:207
+ #, python-brace-format
+-msgid "{email} has been added with the role {role}"
+-msgstr "{email}が役割{role}で追加されました"
++msgid "%(email)s has been added with the role %(role)s"
++msgstr "%(email)sが%(role)sとして追加されました。"
+ 
+ #: views/list.py:257
+ msgid "Member does not exist"
+@@ -3429,10 +3441,185 @@
+ #~ msgid "Only mailinglist members"
+ #~ msgstr "メーリングリストのメンバーのみ"
+ 
+-#, fuzzy
++#: fuzzy
+ #~| msgid "Unsubscribe"
+ #~ msgid "Unsubscribe Selected"
+ #~ msgstr "購読解除"
+ 
+ #~ msgid "Remove"
+ #~ msgstr "削除"
++
++#: templates/postorius/domain/owners.html:16
++msgid "Add Owner"
++msgstr "オーナーを追加"
++
++#: tests/mailman_api_tests/test_list_members.py:394
++msgid "List has no members"
++msgstr "メンバーはいません"
++
++#: postorius/template_list.py:24
++msgid ""
++"[list:admin:action:post] - Sent to the list administrators "
++"when moderator approval for a posting is required."
++msgstr ""
++"[list:admin:action:post] - 投稿にモデレータの承認が必要な場合に、"
++"メーリングリストのオーナーに送信されるメッセージ"
++
++msgid ""
++"[list:admin:action:subscribe] - Sent to the list administrators "
++"when moderator approval for a subscription request is required."
++msgstr ""
++"[list:admin:action:subscribe] -  メーリングリストへの参加にモデレータの承認が必要な場合に、"
++"メーリングリストのオーナーに送信されるメッセージ"
++
++msgid ""
++"[list:admin:action:unsubscribe] - Sent to the list administrators "
++"when moderator approval for an unsubscription request is required."
++msgstr ""
++"[list:admin:action:unsubscribe] - メーリングリストへの退会にモデレータの承認が必要な場合に、"
++"メーリングリストのオーナーに送信されるメッセージ"
++
++msgid ""
++"[list:admin:notice:subscribe] - Sent to the list administrators to notify them "
++"when a new member has been subscribed."
++msgstr ""
++"[list:admin:notice:subscribe] - メーリングリストに新しい参加者が追加された際、"
++"メーリングリストの管理者に送信されるメッセージ"
++
++msgid ""
++"[list:admin:notice:unrecognized] - Sent to the list administrators "
++"when a bounce message in an unrecognized format has been received."
++msgstr ""
++"[list:admin:notice:unrecognized] - 認識されないバウンスメールが届いた際、"
++"メーリングリストの管理者に送信されるメッセージ"
++
++msgid ""
++"[list:admin:notice:pending] - Sent to the list administrators from the 'mailman notify' command."
++msgstr ""
++"[list:admin:notice:pending] - 'mailman notify'コマンドからメーリングリストの管理者に送信されるメッセージ"
++
++msgid ""
++"[list:admin:notice:increment] - Sent to the list administrators to notify them "
++"when a member's bounce score is incremented."
++msgstr ""
++"メンバーのバウンススコアが増加した際、メーリングリストの管理者に送信されるメッセージ"
++
++msgid ""
++"[list:admin:notice:disable] - Sent to the list administrators to notify them when "
++"a member's delivery is disabled due to excessive bounces."
++msgstr ""
++"[list:admin:notice:disable] - 過度のバウンスによりメンバーが無効になった際に、"
++"メーリングリストの管理者に送信されるメッセージ"
++
++msgid ""
++"[list:admin:notice:unsubscribe] - Sent to the list administrators to notify them when "
++"a member has been unsubscribed."
++msgstr ""
++"[list:admin:notice:unsubscribe] - メンバーが退会させられた際に、"
++"メーリングリストの管理者に送信されるメッセージ"
++
++msgid ""
++"[list:member:digest:footer] - The footer for a digest message."
++msgstr ""
++"[list:member:digest:footer] - ダイジェストメッセージのフッター"
++
++msgid ""
++"[list:member:digest:header] - The header for a digest message."
++msgstr ""
++"[list:member:digest:header] - ダイジェストメッセージのヘッダー"
++
++msgid ""
++"[list:member:digest:masthead] - The digest “masthead”; i.e. a common "
++"introduction for all digest messages."
++msgstr ""
++"[list:member:digest:masthead] - ダイジェストメッセージに共通する紹介文"
++
++msgid ""
++"[list:member:regular:footer] - The footer for a regular (non-digest) message."
++msgstr ""
++"[list:member:regular:footer] - ダイジェストではない通常メッセージのフッター"
++
++msgid ""
++"[list:member:regular:header] - The header for a regular (non-digest) message."
++msgstr ""
++"[list:member:regular:header] - ダイジェストではない通常メッセージのヘッダー"
++
++msgid ""
++"[list:user:action:subscribe] - The message sent to subscribers "
++"when a subscription confirmation is required."
++msgstr ""
++"[list:user:action:subscribe] - メーリングリストへの参加手続きの際、"
++"ユーザーに送信されるメッセージ"
++
++msgid ""
++"[list:user:action:unsubscribe] - The message sent to subscribers "
++"when an unsubscription confirmation is required."
++msgstr ""
++"[list:user:action:unsubscribe] - メーリングリスト退会手続きの際、"
++"ユーザーに送信されるメッセージ"
++
++msgid ""
++"[list:user:action:invite] - The message sent to subscribers "
++"when they are invited to join a list."
++msgstr ""
++"[list:user:action:invite] - メーリングリストに招待された際、"
++"ユーザーに送信されるメッセージ"
++
++msgid ""
++"[list:user:notice:goodbye] - The notice sent to a member "
++"when they unsubscribe from a mailing list."
++msgstr ""
++"[list:user:notice:goodbye] - メンバーがメーリングリストから退会した際に送信される通知"
++
++msgid ""
++"[list:user:notice:hold] - The notice sent to a poster "
++"when their message is being held for moderator approval."
++msgstr ""
++"[list:user:notice:hold] - モデレーターの承認待ちで、"
++"メッセージが保留されているときに投稿者に送信される通知"
++
++msgid ""
++"[list:user:notice:no-more-today] - Sent to a user "
++"when the maximum number of autoresponses has been reached for that day."
++msgstr ""
++"[list:user:notice:no-more-today] -  1日当たりの自動応答最大数に達した際に送信されるメッセージ"
++
++msgid ""
++"[list:user:notice:post] - Notice sent to a poster "
++"when their message has been received by the mailing list."
++msgstr ""
++"[list:user:notice:post] - メーリングリストがメッセージを受信したことを投稿者に送信する通知"
++
++msgid ""
++"[list:user:notice:probe] - A bounce probe sent to a member "
++"when their subscription has been disabled due to bounces."
++msgstr ""
++"[list:user:notice:probe] - メールの配送失敗が原因で、"
++"メーリングリストに参加できていない際に、ユーザーに送信されるバウンスプローブ"
++
++msgid ""
++"[list:user:notice:refuse] - Notice sent to a poster "
++"when their message has been rejected by the list’s moderator."
++msgstr ""
++"[list:user:notice:refuse] - リストのモデレーターによってメッセージが拒否された際、"
++"投稿者に送信される通知"
++
++msgid ""
++"[list:user:notice:rejected] - Notice sent to a poster "
++"when their message has been rejected automatically."
++msgstr ""
++"[list:user:notice:rejected] - メッセージが自動的に拒否された際、投稿者に送信される通知"
++
++msgid ""
++"[list:user:notice:welcome] - The notice sent to a member "
++"when they are subscribed to the mailing list."
++msgstr ""
++"[list:user:notice:welcome] - メーリングリストへの登録が完了した際に、"
++"ユーザーに送信される通知"
++
++msgid ""
++"[list:user:notice:warning] - The notice sent to a member "
++"when their membership has been disabled due to excessive bounces."
++msgstr ""
++"[list:user:notice:warning] - 多くのメールが配信できなかったことにより、"
++"メンバーから外された際にユーザーに送信される通知"
+diff -ruN ./site-packages.ORG/postorius/models.py ./site-packages/postorius/models.py
+--- ./site-packages.ORG/postorius/models.py	2024-01-11 15:30:11.145734300 +0900
++++ ./site-packages/postorius/models.py	2024-01-18 09:59:31.480553491 +0900
+@@ -253,11 +253,13 @@
+     name = models.CharField(
+         max_length=100,
+         choices=_templates_list_choices,
+-        help_text=_('Choose the template you want to customize.'),
++        help_text=_('Choose the template you want to customize.'), 
++        verbose_name = _("Name"),
+     )
+     data = models.TextField(
+         help_text=_email_template_help_text,
+         blank=True,
++        verbose_name = _("Data"),
+     )
+     language = models.CharField(
+         max_length=5,
+diff -ruN ./site-packages.ORG/postorius/templates/postorius/lists/settings.html ./site-packages/postorius/templates/postorius/lists/settings.html
+--- ./site-packages.ORG/postorius/templates/postorius/lists/settings.html	2024-01-11 15:30:11.138734024 +0900
++++ ./site-packages/postorius/templates/postorius/lists/settings.html	2024-01-18 09:59:31.481553530 +0900
+@@ -17,7 +17,7 @@
+         {% for section in section_names %}
+         <li role="tab" class="nav-item">
+           <a href="{% url 'list_settings' list_id=list.list_id visible_section=section.0 %}" class="nav-link {% if section.0 == visible_section %}active{% endif %} ">
+-            {{ section.1 }}
++  	    {% trans  section.1 %}
+           </a>
+         </li>
+         {% endfor %}
+diff -ruN ./site-packages.ORG/postorius/templates/postorius/user/all.html ./site-packages/postorius/templates/postorius/user/all.html
+--- ./site-packages.ORG/postorius/templates/postorius/user/all.html	2024-01-11 15:30:11.138734024 +0900
++++ ./site-packages/postorius/templates/postorius/user/all.html	2024-01-18 09:59:31.481553530 +0900
+@@ -43,7 +43,7 @@
+         <td> {{ auser|user_display }}</td>
+         <td> {{ auser.created_on|datetime_parse|date:"DATETIME_FORMAT" }}</td>
+         <td>
+-          <a class="btn btn-primary btn-sm" href={% url 'manage_user' auser.user_id %}>Manage</a>
++          <a class="btn btn-primary btn-sm" href={% url 'manage_user' auser.user_id %}>{% trans 'Manage' %}</a> 
+           <a class="btn btn-primary btn-sm" href={% url 'delete_user' auser.user_id %}>Delete</a>
+         </td>
+       </tr>
+diff -ruN ./site-packages.ORG/postorius/views/domain.py ./site-packages/postorius/views/domain.py
+--- ./site-packages.ORG/postorius/views/domain.py	2024-01-11 15:30:11.142734182 +0900
++++ ./site-packages/postorius/views/domain.py	2024-01-18 09:59:31.482553569 +0900
+@@ -151,13 +151,13 @@
+             domain_obj.delete()
+             MailDomain.objects.filter(mail_domain=domain).delete()
+             messages.success(
+-                request, _('The domain %s has been deleted.' % domain)
++                request, _('The domain %s has been deleted.') % domain
+             )
+             domain_deleted.send(sender=Domain, mail_host=domain)
+             return redirect('domain_index')
+         except HTTPError as e:
+             messages.error(
+-                request, _('The domain could not be deleted: %s' % e.msg)
++                request, _('The domain could not be deleted: %s') % e.msg
+             )
+             return redirect('domain_index')
+     domain_lists_page = domain_obj.get_list_page(count=10)
+diff -ruN ./site-packages.ORG/postorius/views/list.py ./site-packages/postorius/views/list.py
+--- ./site-packages.ORG/postorius/views/list.py	2024-01-11 15:30:11.142734182 +0900
++++ ./site-packages/postorius/views/list.py	2024-01-18 09:59:31.483553609 +0900
+@@ -204,10 +204,8 @@
+                 messages.success(
+                     request,
+                     _(
+-                        '{email} has been added with the role {role}'.format(
+-                            email=member_form.cleaned_data['email'], role=role
+-                        )
+-                    ),
++                        '%(email)s has been added with the role %(role)s') %
++                        {'email': member_form.cleaned_data['email'], 'role': role}
+                 )
+             except HTTPError as e:
+                 messages.error(request, e.msg)
+@@ -925,15 +923,14 @@
+             messages.success(
+                 request,
+                 _(
+-                    'Moderation action for {} set to {}'.format(
++                    'Moderation action for {} set to {}').format(
+                         member, moderation_choices[moderation_choice]
+                     )
+-                ),
+             )
+         else:
+             messages.error(
+                 request,
+-                _('Failed to set moderation action for {}'.format(msg.sender)),
++                _('Failed to set moderation action for {}').format(msg.sender)
+             )
+     return redirect('list_held_messages', list_id)
+ 

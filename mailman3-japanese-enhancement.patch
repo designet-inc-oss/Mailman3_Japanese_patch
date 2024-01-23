@@ -1,0 +1,217 @@
+diff -ru ./site-packages.ORG/django_mailman3/lib/scrub.py ./site-packages/django_mailman3/lib/scrub.py
+--- ./site-packages.ORG/django_mailman3/lib/scrub.py	2024-01-11 15:30:10.517709520 +0900
++++ ./site-packages/django_mailman3/lib/scrub.py	2024-01-15 15:07:23.183540265 +0900
+@@ -24,6 +24,7 @@
+ from enum import Enum
+ from mimetypes import guess_all_extensions
+ 
++import iconv
+ 
+ # Path characters for common platforms
+ PRE = re.compile(r'[/\\:]')
+@@ -244,7 +245,13 @@
+         try:
+             result = payload.decode(charset)
+         except (UnicodeDecodeError, LookupError, ValueError, AssertionError):
+-            result = payload.decode('utf-8', 'replace')
++            # Japanese enhancement
++            ic = iconv.open('UTF-8', charset)
++            try:
++                ic_str = ic.iconv(payload, len(payload) * 2)
++                result = ic_str.decode('utf-8', 'replace')
++            except:
++                result = payload.decode('utf-8', 'replace')
+         next_part_match = NEXT_PART.search(result)
+         if next_part_match:
+             result = result[0:next_part_match.start(0)]
+diff -ru ./site-packages.ORG/mailman/bin/master.py ./site-packages/mailman/bin/master.py
+--- ./site-packages.ORG/mailman/bin/master.py	2024-01-11 15:30:10.718717451 +0900
++++ ./site-packages/mailman/bin/master.py	2024-01-15 15:07:23.183540265 +0900
+@@ -64,6 +64,9 @@
+     'MAILMAN_EXTRA_TESTING_CFG',
+     'PYTHONPATH',
+     'PYTHONHOME',
++    'LD_LIBRARY_PATH',
++    'LD_PRELOAD',
++    'CHARSET_ALIAS',
+     )
+ 
+ 
+diff -ru ./site-packages.ORG/mailman/chains/hold.py ./site-packages/mailman/chains/hold.py
+--- ./site-packages.ORG/mailman/chains/hold.py	2024-01-11 15:30:10.724717688 +0900
++++ ./site-packages/mailman/chains/hold.py	2024-01-15 15:07:23.183540265 +0900
+@@ -41,6 +41,9 @@
+ from zope.interface import implementer
+ 
+ 
++from email.header import Header, decode_header, make_header
++import iconv
++
+ SEMISPACE = '; '
+ SPACE = ' '
+ NL = '\n'
+@@ -166,11 +169,29 @@
+             # but if we can't, we leave it as is because notificatuins can now
+             # be sent as utf-8 if necessary.
+             oneline_subject = oneline(original_subject, in_unicode=True)
++
++            # Japanese enhancement
++            decoded_subject = decode_header(oneline_subject)
+             try:
+-                bytes_subject = oneline_subject.encode(charset)
+-                original_subject = bytes_subject.decode(charset)
+-            except UnicodeError:
+-                original_subject = oneline_subject
++                original_subject = str(make_header(decoded_subject))
++            except UnicodeDecodeError:
++                original_subject = False
++
++            if original_subject == False:
++                orig_subject = ''
++                for part in decoded_subject:
++                    if part[1] == None:
++                        orig_subject = orig_subject + part[0].decode('us-ascii', 'replace')
++                    else:
++                        ic = iconv.open('UTF-8', part[1])
++                        try:
++                            subj = ic.iconv(part[0], len(part[0]) * 2)
++                            orig_subject = orig_subject + subj.decode('utf-8', 'replace')
++                        except:
++                            orig_subject = "(Cannot convert subject)"
++                            break
++                original_subject = orig_subject
++
+         substitutions = dict(
+             subject=original_subject,
+             sender_email=msg.sender,
+diff -ru ./site-packages.ORG/mailman/email/message.py ./site-packages/mailman/email/message.py
+--- ./site-packages.ORG/mailman/email/message.py	2024-01-11 15:30:10.719717491 +0900
++++ ./site-packages/mailman/email/message.py	2024-01-15 15:12:32.369651365 +0900
+@@ -35,6 +35,7 @@
+ from public import public
+ from zope.component import getUtility
+ 
++import iconv
+ 
+ COMMASPACE = ', '
+ 
+@@ -115,11 +116,33 @@
+                                else '')
+             else:
+                 for field_value in self.get_all(header, []):
++                    # Japanese enhancement
++                    try:
++                        decoded_field_value = decode_header(field_value)
++                        field_value = make_header(decoded_field_value)
++                    except UnicodeDecodeError as e:
++                        field_value = None
++
++                    if field_value == None:
++                        orig_field_value = ''
++                        for part in decoded_field_value:
++                            if part[1] == None:
++                                orig_field_value = orig_field_value + part[0].decode('us-ascii', 'replace')
++                            else:
++                                ic = iconv.open('UTF-8', part[1])
++                                try:
++                                    ic_str = ic.iconv(part[0], len(part[0]) * 2)
++                                    orig_field_value = orig_field_value + ic_str.decode('utf-8', 'replace')
++                                except:
++                                    orig_field_value = "(Cannot convert value)"
++                                    break
++                            field_value = make_header([(orig_field_value, 'utf8')])
++
+                     # Convert the header to str in case it's a Header instance.
+                     header_value = re.sub(
+                         '[\r\n]',
+                         '',
+-                        str(make_header(decode_header(field_value)))
++                        str(field_value)
+                         )
+                     for name, address in email.utils.getaddresses(
+                             [header_value]):
+diff -ru ./site-packages.ORG/mailman/handlers/subject_prefix.py ./site-packages/mailman/handlers/subject_prefix.py
+--- ./site-packages.ORG/mailman/handlers/subject_prefix.py	2024-01-11 15:30:10.726717767 +0900
++++ ./site-packages/mailman/handlers/subject_prefix.py	2024-01-15 15:07:23.184540305 +0900
+@@ -26,6 +26,7 @@
+ from public import public
+ from zope.interface import implementer
+ 
++import iconv
+ 
+ RE_PATTERN = r'\s*((RE|AW|SV|VS)(\[\d+\])?\s*:\s*)+'
+ ASCII_CHARSETS = (None, 'ascii', 'us-ascii')
+@@ -172,7 +173,28 @@
+         if isinstance(subject, Header):
+             subject_text = str(subject)
+         else:
+-            subject = make_header(decode_header(subject))
++            # Japanese enhancement
++            try:
++                decoded_subject = decode_header(subject)
++                subject = make_header(decoded_subject)
++            except UnicodeDecodeError as e:
++                subject = None
++
++            if subject == None:
++                orig_subject = ''
++                for part in decoded_subject:
++                    if part[1] == None:
++                        orig_subject = orig_subject + part[0].decode('us-ascii', 'replace')
++                    else:
++                        ic = iconv.open('UTF-8', part[1])
++                        try:
++                            ic_str = ic.iconv(part[0], len(part[0]) * 2)
++                            orig_subject = orig_subject + ic_str.decode('utf-8', 'replace')
++                        except:
++                            orig_subject = "(Cannot convert subject)"
++                            break
++                subject = make_header([(orig_subject, 'utf8')])
++
+             subject_text = str(subject)
+         lines = subject_text.splitlines()
+         ws = '\t'
+diff -ru ./site-packages.ORG/mailman/rest/post_moderation.py ./site-packages/mailman/rest/post_moderation.py
+--- ./site-packages.ORG/mailman/rest/post_moderation.py	2024-01-11 15:30:10.720717530 +0900
++++ ./site-packages/mailman/rest/post_moderation.py	2024-01-15 15:07:23.184540305 +0900
+@@ -37,6 +37,8 @@
+ from public import public
+ from zope.component import getUtility
+ 
++from email.header import Header, decode_header, make_header
++import iconv
+ 
+ class _ModerationBase:
+     """Common base class."""
+@@ -102,10 +104,27 @@
+                 del resource[key]
+         # Store the original header and then try decoding it.
+         resource['original_subject'] = resource['subject']
+-        # If we can't decode the header, leave the subject unchanged.
+-        with suppress(LookupError, MessageError, UnicodeDecodeError):
+-            resource['subject'] = str(
+-                make_header(decode_header(resource['subject'])))
++
++        # Japanese enhancement
++        decoded_subject = decode_header(resource['subject'])
++        try:
++            resource['subject'] = str(make_header(decoded_subject))
++        except (LookupError, MessageError, UnicodeDecodeError):
++            orig_subject = ''
++            for part in decoded_subject:
++                if part[1] == None:
++                    orig_subject = orig_subject + part[0].decode('us-ascii', 'replace')
++                else:
++                    ic = iconv.open('UTF-8', part[1])
++                    try:
++                        ic_str = ic.iconv(part[0], len(part[0]) * 2)
++                        orig_subject = orig_subject + ic_str.decode('utf-8', 'replace')
++                    except:
++                        orig_subject = "(Cannot convert subject)"
++                        break
++
++            resource['subject'] = orig_subject
++
+         # Also, held message resources will always be this type, so ignore
+         # this key value.
+         del resource['type']
